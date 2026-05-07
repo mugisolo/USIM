@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'mugisolo@gmail.com' && request.auth.token.email_verified == true) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperUser == true
+      );
+    }
+
+    match /incidents/{incidentId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /pep_profiles/{profileId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /strategic_assets/{assetId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+    
+    // Test collection for deployment check
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

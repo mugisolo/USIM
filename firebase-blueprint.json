@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "Incident": {
+      "title": "Incident",
+      "description": "A political or security incident in the region.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "type": { "type": "string", "enum": ["Violence", "Protest", "Arrest", "Intimidation", "Rally"] },
+        "fatalities": { "type": "integer" },
+        "injuries": { "type": "integer" },
+        "description": { "type": "string" },
+        "verified": { "type": "boolean" }
+      },
+      "required": ["date", "location", "latitude", "longitude", "type", "description", "verified"]
+    },
+    "PEPCandidate": {
+      "title": "PEPCandidate",
+      "description": "A Politically Exposed Person (PEP) or candidate being monitored.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "constituency": { "type": "string" },
+        "party": { "type": "string" },
+        "category": { "type": "string", "enum": ["Woman MP", "Constituency", "Special Interest", "Executive", "Judiciary"] },
+        "sentimentScore": { "type": "number" },
+        "projectedVoteShare": { "type": "number" },
+        "mentions": { "type": "integer" }
+      },
+      "required": ["name", "constituency", "party", "category", "sentimentScore", "mentions"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in a stored conversation with the AI Analyst.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "text", "timestamp"]
+    },
+    "UserMetadata": {
+      "title": "UserMetadata",
+      "description": "Metadata for application users, including super user status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "isSuperUser": { "type": "boolean" },
+        "accessCodeUsed": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "StrategicAsset": {
+      "title": "StrategicAsset",
+      "description": "A critical infrastructure asset or strategic node.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Airbase", "Port", "Data Center", "Mine", "Oil Refined", "Power Plant", "Border Post"] },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["Operational", "Secured", "Compromised", "Under Observation"] },
+        "coordinates": { 
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "country": { "type": "string" },
+        "owner": { "type": "string" }
+      },
+      "required": ["name", "type", "location", "status", "coordinates", "country", "owner"]
+    }
+  },
+  "firestore": {
+    "/incidents/{incidentId}": {
+      "schema": "Incident",
+      "description": "Collection of security and political incidents."
+    },
+    "/pep_profiles/{profileId}": {
+      "schema": "PEPCandidate",
+      "description": "Collection of monitored PEPs and profiles."
+    },
+    "/strategic_assets/{assetId}": {
+      "schema": "StrategicAsset",
+      "description": "Collection of critical infrastructure assets."
+    },
+    "/chats/{chatId}": {
+      "schema": "ChatMessage",
+      "description": "Stored chat history for intelligence synthesis."
+    },
+    "/users/{userId}": {
+      "schema": "UserMetadata",
+      "description": "User profiles and permissions."
+    }
+  }
+}

@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Kampala Command Palette */
+  --color-lake-victoria: #0B1120;
+  --color-kampala-obsidian: #1A1D23;
+  --color-crested-gold: #D4AF37;
+  --color-brotherhood-crimson: #C41E3A;
+  --color-pearl-africa: #F5F1E8;
+  --color-crane-grey: #7A8699;
+  --color-savanna-sage: #3D6B4F;
+  --color-nile-amber: #C8941E;
+  --color-rift-rust: #A0401A;
+  --color-synthesis-indigo: #2A3F5F;
+  --color-intel-blue: #3182CE;
+  --color-infra-steel: #718096;
+  --color-threat-crimson: #C41E3A;
+}
+
+@layer base {
+  body {
+    @apply bg-lake-victoria text-pearl-africa font-sans antialiased selection:bg-crested-gold/30 overflow-x-hidden;
+  }
+
+  /* Custom Scrollbar for Swiss Precision */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-lake-victoria) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.2);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.4);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+      linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.01));
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.15;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+    z-index: 101;
+  }
+}
+
+.night-ops-active {
+  filter: sepia(100%) hue-rotate(-50deg) saturate(300%) brightness(0.6) contrast(1.1);
+}
+
+.stacked-precision-card {
+  @apply bg-kampala-obsidian border border-white/5 rounded-sm overflow-hidden transition-all duration-300 hover:border-crested-gold/20 active:scale-[0.99] backdrop-blur-sm;
+}
+
+.threat-banner-pulse {
+  animation: pulse-danger 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-danger {
+  0%, 100% { background-color: var(--color-threat-crimson); }
+  50% { background-color: #9B2C2C; }
+}
+
+.glitch-text {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.8;
+}
+
+.glitch-text::before {
+  color: #0ff;
+  z-index: -1;
+  animation: glitch-anim 0.3s infinite;
+}
+
+.glitch-text::after {
+  color: #f0f;
+  z-index: -2;
+  animation: glitch-anim 0.3s infinite reverse;
+}
+
+@keyframes glitch-anim {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+.synth-border {
+  border-left: 4px solid var(--color-intel-blue);
+}
+
+/* 8dp baseline grid spacers */
+.mt-8dp { margin-top: 8px; }
+.mb-16dp { margin-bottom: 16px; }
+.p-24dp { padding: 24px; }
