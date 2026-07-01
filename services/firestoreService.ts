@@ -1,6 +1,6 @@
 import { db } from '../firebaseConfig';
 import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, orderBy, getDocs, where } from "firebase/firestore";
-import { Incident, PEPProfile, StrategicAsset } from '../types';
+import { Incident, PEPProfile, StrategicAsset, PEPRegistryRecord } from '../types';
 import { getAuth } from "firebase/auth";
 
 const auth = getAuth();
@@ -9,6 +9,7 @@ const auth = getAuth();
 const INCIDENTS_COL = 'incidents';
 const PEP_PROFILES_COL = 'pep_profiles';
 const ASSETS_COL = 'strategic_assets';
+const PEP_REGISTRY_COL = 'pep-registry';
 const CHATS_COL = 'chats';
 const USERS_COL = 'users';
 
@@ -127,9 +128,15 @@ function handleFirestoreError(error: unknown, operationType: string, path: strin
     },
     operationType,
     path
+  };
+  let serializedErr: string;
+  try {
+    serializedErr = JSON.stringify(errInfo);
+  } catch (err) {
+    serializedErr = `Firestore Error: [Non-serializable error details. Original message: ${errInfo.error}]`;
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.error('Firestore Error: ', serializedErr);
+  throw new Error(serializedErr);
 }
 
 /**
@@ -291,6 +298,24 @@ export const addAssetToDb = async (asset: StrategicAsset) => {
     }
 };
 
+export const updateAssetStatusInDb = async (id: string, status: StrategicAsset['status']) => {
+    if (!db) return;
+    try {
+        await updateDoc(doc(db, ASSETS_COL, id), { status });
+    } catch (error) {
+        handleFirestoreError(error, 'write', `${ASSETS_COL}/${id}`);
+    }
+};
+
+export const deleteAssetFromDb = async (id: string) => {
+    if (!db) return;
+    try {
+        await deleteDoc(doc(db, ASSETS_COL, id));
+    } catch (error) {
+        handleFirestoreError(error, 'delete', `${ASSETS_COL}/${id}`);
+    }
+};
+
 /**
  * Deduplicate PEP Data
  * Scans the database for peps with the same name and constituency, retaining only one.
@@ -370,5 +395,158 @@ export const seedDatabase = async (
     } catch (e: any) {
         console.error("Seeding Error:", e);
         handleFirestoreError(e, 'write', "bulk_seed");
+    }
+};
+
+/**
+ * Subscribe to PEP Registry Records (Forensics)
+ */
+export const subscribeToPEPRegistry = (
+    onData: (records: PEPRegistryRecord[]) => void,
+    onError?: (error: any) => void
+) => {
+    if (!db) return () => {};
+    
+    return onSnapshot(collection(db, PEP_REGISTRY_COL), (snapshot) => {
+        const records = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as PEPRegistryRecord[];
+        onData(records);
+    }, (error) => {
+        handleFirestoreError(error, 'list', PEP_REGISTRY_COL);
+        if (onError) onError(error);
+    });
+};
+
+/**
+ * Add a new PEP Registry Record
+ */
+export const addPEPRegistryRecord = async (record: Omit<PEPRegistryRecord, 'id'>) => {
+    if (!db) return null;
+    try {
+        const docRef = await addDoc(collection(db, PEP_REGISTRY_COL), record);
+        return docRef.id;
+    } catch (error) {
+        handleFirestoreError(error, 'write', PEP_REGISTRY_COL);
+        return null;
+    }
+};
+
+/**
+ * Update an existing PEP Registry Record
+ */
+export const updatePEPRegistryRecord = async (id: string, updates: Partial<PEPRegistryRecord>) => {
+    if (!db) return;
+    try {
+        await updateDoc(doc(db, PEP_REGISTRY_COL, id), updates);
+    } catch (error) {
+        handleFirestoreError(error, 'write', `${PEP_REGISTRY_COL}/${id}`);
+    }
+};
+
+/**
+ * Delete a PEP Registry Record
+ */
+export const deletePEPRegistryRecord = async (id: string) => {
+    if (!db) return;
+    try {
+        await deleteDoc(doc(db, PEP_REGISTRY_COL, id));
+    } catch (error) {
+        handleFirestoreError(error, 'delete', `${PEP_REGISTRY_COL}/${id}`);
+    }
+};
+
+/**
+ * Seed PEP Registry with highly realistic data for East African Political Forensics
+ */
+export const seedPEPRegistry = async () => {
+    if (!db) {
+        alert("Firestore is not available.");
+        return;
+    }
+
+    const defaultRecords: Omit<PEPRegistryRecord, 'id'>[] = [
+        {
+            name: "Comrade Mugisolo",
+            role: "Director of Strategic Oversight",
+            organization: "State Intelligence Command",
+            connections: ["President Museveni", "General Muhoozi", "Amama Mbabazi"],
+            influenceWeighting: 95,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "General Muhoozi Kainerugaba",
+            role: "Chief of Defence Forces (CDF)",
+            organization: "Uganda Peoples' Defence Forces (UPDF)",
+            connections: ["President Museveni", "Comrade Mugisolo", "Lt. Gen. Kayanja Lutaaya"],
+            influenceWeighting: 90,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "President Yoweri Museveni",
+            role: "Commander-in-Chief & President",
+            organization: "Executive Branch of Uganda",
+            connections: ["General Muhoozi", "Comrade Mugisolo", "Amama Mbabazi", "Anita Among"],
+            influenceWeighting: 98,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "Robert Kyagulanyi Ssentamu (Bobi Wine)",
+            role: "Opposition Leader",
+            organization: "National Unity Platform (NUP)",
+            connections: ["Joel Ssenyonyi", "Mathias Mpuuga", "Dr. Kizza Besigye"],
+            influenceWeighting: 85,
+            status: "Under Investigation",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "Dr. Kizza Besigye",
+            role: "Veteran Opposition Leader",
+            organization: "Forum for Democratic Change (FDC) - Katonga faction",
+            connections: ["Robert Kyagulanyi Ssentamu", "Erias Lukwago"],
+            influenceWeighting: 78,
+            status: "Under Investigation",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "Anita Among",
+            role: "Speaker of Parliament",
+            organization: "Parliament of Uganda",
+            connections: ["President Museveni", "Thomas Tayebwa"],
+            influenceWeighting: 82,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "Erias Lukwago",
+            role: "Lord Mayor of Kampala",
+            organization: "Kampala Capital City Authority (KCCA)",
+            connections: ["Dr. Kizza Besigye", "Robert Kyagulanyi Ssentamu"],
+            influenceWeighting: 68,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        },
+        {
+            name: "Amama Mbabazi",
+            role: "Special Envoy & Former PM",
+            organization: "Executive",
+            connections: ["President Museveni", "Comrade Mugisolo"],
+            influenceWeighting: 74,
+            status: "Active",
+            lastUpdated: new Date().toISOString().split('T')[0]
+        }
+    ];
+
+    try {
+        for (const record of defaultRecords) {
+            await addDoc(collection(db, PEP_REGISTRY_COL), record);
+        }
+    } catch (error) {
+        console.error("Error seeding PEP registry:", error);
+        handleFirestoreError(error, 'write', "seed_pep_registry");
     }
 };

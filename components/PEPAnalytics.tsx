@@ -30,6 +30,7 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
   const [filterCountry, setFilterCountry] = useState<string>('All');
   const [selectedPEP, setSelectedPEP] = useState<PEPProfile | null>(null);
   const [politicalDossier, setPoliticalDossier] = useState<PoliticalDossier | null>(null);
+  const [isNightOps, setIsNightOps] = useState(false);
   
   // Admin State
   const [isAdminMode, setIsAdminMode] = useState(false);

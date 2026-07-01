@@ -36,7 +36,11 @@ export const ReportAnalyzer: React.FC = () => {
   const safeRender = (val: any) => {
     if (!val) return "";
     if (typeof val === 'string') return val;
-    return JSON.stringify(val, null, 2);
+    try {
+      return JSON.stringify(val, null, 2);
+    } catch (err) {
+      return "[Non-serializable block]";
+    }
   };
 
   const handleAnalyze = async () => {

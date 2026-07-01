@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { PresidentialProfile, Incident, PEPEntity, CountrySitrep } from "../types";
 
@@ -60,7 +59,7 @@ const parseJSON = (text: string): any => {
     }
 
     if (!jsonStr) return null;
-    jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
+    jsonStr = jsonStr.replace(/,\\s*([}\\]])/g, '$1');
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("U-ISMS JSON Parse Error:", error);
@@ -89,7 +88,7 @@ export const extractPEPsFromFiles = async (files: { data: string, mimeType: stri
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.5-flash',
         contents: [prompt, { inlineData: { data: file.data, mimeType: file.mimeType } }]
       });
       return parseJSON(response.text) || [];
@@ -117,11 +116,10 @@ export const fetchRecentIncidents = async (): Promise<Incident[]> => {
     Every incident MUST include a "confidence" field with a tier from [TIER 1-5].`;
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: { 
-        tools: [{ googleSearch: {} }],
-        thinkingConfig: { thinkingBudget: 2500 }
+        tools: [{ googleSearch: {} }]
       }
     });
     return parseJSON(response.text) || [];
@@ -136,18 +134,17 @@ export const generateCountrySitrep = async (countryName: string, isDeep: boolean
     Return strictly JSON.`;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: isDeep ? { 
-        tools: [{ googleSearch: {} }],
-        thinkingConfig: { thinkingBudget: 4000 }
+        tools: [{ googleSearch: {} }]
       } : {}
     });
     return parseJSON(response.text);
   } catch { return null; }
 };
 
-export const generateCountryLedgerAnalytics = async (countries: Country[], incidents: Incident[], peps: PEPProfile[], assets: StrategicAsset[], isDeep: boolean = false): Promise<CountryAnalytics | null> => {
+export const generateCountryLedgerAnalytics = async (countries: any[], incidents: Incident[], peps: any[], assets: StrategicAsset[], isDeep: boolean = false): Promise<any | null> => {
   const summary = countries.map(c => ({ name: c.name, region: c.region, stability: c.stabilityIndex }));
   const incidentCount = incidents.length;
   const pepCount = peps.length;
@@ -172,7 +169,7 @@ export const generateCountryLedgerAnalytics = async (countries: Country[], incid
   `;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
     });
@@ -187,7 +184,7 @@ export const fetchLivePEPStats = async (peps: PEPEntity[]): Promise<Partial<PEPE
     Return ONLY a JSON array with updated sentimentScore (0-100), mentions (int), and politicalInfluence if applicable.`;
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: { tools: [{ googleSearch: {} }] }
     });
@@ -204,9 +201,9 @@ export const analyzePEPEntity = async (name: string, party: string, isDeep: bool
     Return strictly JSON.`;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }], thinkingConfig: { thinkingBudget: 3000 } } : {}
+      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
     });
     const data = parseJSON(response.text);
     if (!data) return null;
@@ -224,9 +221,9 @@ export const generatePoliticalStrategy = async (pepName: string, party: string, 
     Return JSON { grandStrategy, sitRep }.`;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }], thinkingConfig: { thinkingBudget: 2000 } } : {}
+      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
     });
     return parseJSON(response.text);
   } catch { return null; }
@@ -240,7 +237,7 @@ export const generateDailyOpEd = async (incidentsSummary: string, pepPerformance
     Output JSON { title, content (HTML), keyTakeaways }. Use the High-Command Briefing format.`;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
     });
@@ -255,9 +252,9 @@ export const generateDeepMindAnalysis = async (query: string, isDeep: boolean = 
     Return JSON: {title, executiveSummary, strategicSynthesis, councilVoices, conclusion}.`;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }], thinkingConfig: { thinkingBudget: 5000 } } : {}
+      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
     });
     return parseJSON(response.text);
   } catch { return null; }
@@ -281,11 +278,10 @@ export const generateGlobalRecommendations = async (peps: PEPEntity[], isDeep: b
   `;
   try {
     const response = await ai.models.generateContent({
-      model: isDeep ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: isDeep ? { 
-        tools: [{ googleSearch: {} }], 
-        thinkingConfig: { thinkingBudget: 4000 } 
+        tools: [{ googleSearch: {} }]
       } : {}
     });
     return parseJSON(response.text);
@@ -295,7 +291,7 @@ export const generateGlobalRecommendations = async (peps: PEPEntity[], isDeep: b
 export const chatWithAnalyst = async (history: any[], message: string) => {
   try {
     const chat = ai.chats.create({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3.5-flash',
       history: history,
       config: {
         tools: [{ googleSearch: {} }],
@@ -312,5 +308,83 @@ export const chatWithAnalyst = async (history: any[], message: string) => {
   } catch (error) {
     console.error("U-ISMS Chat Intelligence Failure:", error);
     return `System interference detected. Grounding protocol failed. [REASON: ${error instanceof Error ? error.message : "CRYPTIC_FAILURE"}]`;
+  }
+};
+
+export const generateSynthesisMindBriefing = async (
+  incidents: Incident[],
+  peps: PEPProfile[],
+  assets: StrategicAsset[],
+  isDeep: boolean = false
+): Promise<{
+  title: string;
+  threatAssessment: string;
+  kineticHotspots: string[];
+  infrastructureVulnerabilities: string[];
+  strategicRecoms: string[];
+  summary: string;
+} | null> => {
+  const incidentSummary = incidents.slice(0, 15).map(i => ({
+    type: i.type,
+    location: i.location,
+    severity: i.severity,
+    description: i.description,
+    fatalities: i.fatalities
+  }));
+
+  const pepSummary = peps.slice(0, 20).map(p => ({
+    name: p.name,
+    category: p.category,
+    sentiment: p.sentimentScore,
+    influence: p.influenceIndex,
+    country: p.country
+  }));
+
+  const assetSummary = assets.map(a => ({
+    name: a.name,
+    type: a.type,
+    status: a.status,
+    country: a.country
+  }));
+
+  const prompt = `${U_ISMS_CORE_DIRECTIVE}
+    AUTOMATED INTELLIGENCE BRIEFING PROTOCOL — SYNTHESIS MIND:
+    Generate a highly tactical high-command security analysis briefing specifically formulated for Comrade Mugisolo (Director of Strategic Oversight). Ensure all analysis, tone, and strategic recommendations are addressed directly to Mugisolo, utilizing elite presidential military statecraft.
+    
+    KINETIC & POLITICAL FICTION CLUSTERS (INCIDENTS):
+    ${JSON.stringify(incidentSummary)}
+    
+    STRATEGIC ACTORS DEPLOYED (PEPS):
+    ${JSON.stringify(pepSummary)}
+    
+    STRATEGIC INFRASTRUCTURE CONCESSIONS (ASSETS):
+    ${JSON.stringify(assetSummary)}
+    
+    TASK:
+    Analyze the multi-domain convergence between incidents, active political players, and the integrity of critical infrastructure.
+    Identify localized escalation vectors and vulnerabilities using the Synthesis Mind framework (Sun Tzu, Clausewitz, Museveni statecraft).
+    Assign intelligence confidence tiers [TIER 1-5] where applicable.
+    
+    Return strictly JSON matching this structure:
+    {
+      "title": "A precise intelligence grade title",
+      "threatAssessment": "Comprehensive analysis of the current national-regional security state (150 words)",
+      "kineticHotspots": ["Identified physical conflict or escalation hotspot 1", "hotspot 2"],
+      "infrastructureVulnerabilities": ["Critical infrastructure vulnerability / exposure 1", "exposure 2"],
+      "strategicRecoms": ["SFC/UPDF strategic action recommendation 1", "recommendation 2"],
+      "summary": "One sentence verdict suited for Presidential telebrief"
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    });
+    return parseJSON(response.text);
+  } catch (error) {
+    console.error("Synthesis Mind Briefing Generation Failure:", error);
+    return null;
   }
 };

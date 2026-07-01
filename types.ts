@@ -263,11 +263,24 @@ export interface SearchAnalysisResult {
   sources: GroundingChunk[];
 }
 
+export interface PEPRegistryRecord {
+  id: string;
+  name: string;
+  connections: string[];
+  influenceWeighting: number; // 0-100 scale
+  role: string;
+  organization: string;
+  status: 'Active' | 'Under Investigation' | 'Neutralized' | 'Exiled';
+  lastUpdated: string;
+}
+
 export enum ViewState {
   THEATER = 'THEATER',
   ASSETS = 'ASSETS',
   MAP = 'MAP',
   ACTORS = 'ACTORS',
+  FORENSICS = 'FORENSICS',
   SYNTHESIS = 'SYNTHESIS',
   CHAT = 'CHAT',
+  WORKSPACE = 'WORKSPACE',
 }

@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { initializeFirestore, doc, getDocFromServer, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 import firebaseConfig from './firebase-applet-config.json';
 
 let db: any = null;
@@ -7,8 +7,21 @@ let db: any = null;
 try {
   const app = initializeApp(firebaseConfig);
   // @ts-expect-error - firebase-applet-config.json is generated at runtime
-  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  console.log("U-ISMS Surveillance: Firebase Connection Established");
+  const dbId = firebaseConfig.firestoreDatabaseId || "ai-studio-92ba9721-4a0b-4c35-8a9c-3966c0c6f514";
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
+  }, dbId);
+  console.log("U-ISMS Surveillance: Firebase Connection Established (Long Polling)");
+
+  // Enable multi-tab offline persistence
+  enableMultiTabIndexedDbPersistence(db)
+    .then(() => {
+      console.log("U-ISMS Surveillance: Offline Persistence Enabled Successfully");
+    })
+    .catch((err) => {
+      console.warn("U-ISMS Surveillance: Offline Persistence initialization deferred or failed", err);
+    });
 
   // Validate connection
   const testConnection = async () => {

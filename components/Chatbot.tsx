@@ -6,6 +6,7 @@ import { chatWithAnalyst } from '../services/geminiService';
 import { auth, loginWithGoogle } from '../services/authService';
 import { saveChatMessage, subscribeToChatHistory, updateUserMetadata, subscribeToUserMetadata } from '../services/firestoreService';
 import { onAuthStateChanged } from 'firebase/auth';
+import { logOperationalAction } from './OperationalAuditPanel';
 
 import Markdown from 'react-markdown';
 
@@ -65,7 +66,16 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
   }, [messages, isOpen, loading]);
 
   const renderContent = (content: any, role: string) => {
-    const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+    let text: string;
+    if (typeof content === 'string') {
+      text = content;
+    } else {
+      try {
+        text = JSON.stringify(content, null, 2);
+      } catch (err) {
+        text = "[Non-serializable object]";
+      }
+    }
     
     return (
       <div className="markdown-body text-inherit">
@@ -111,15 +121,30 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
     setLoading(true);
     setIsTyping(true);
 
+    // Operational logging of user query
+    logOperationalAction(`User queried analyst: "${userMsg.length > 60 ? userMsg.substring(0, 57) + '...' : userMsg}"`, 'USER_QUERY', isSuperUser ? 'Mugisa Solomon Byakutaaga' : 'UC_01');
+
     // Save user message to Firestore if logged in (non-blocking)
     if (user) {
         saveChatMessage(user.uid, 'user', userMsg).catch(console.error);
     }
 
-    const history = Array.isArray(currentMessages) ? currentMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: typeof m.text === 'string' ? m.text : JSON.stringify(m.text) }]
-    })) : [];
+    const history = Array.isArray(currentMessages) ? currentMessages.map(m => {
+        let textPart: string;
+        if (typeof m.text === 'string') {
+            textPart = m.text;
+        } else {
+            try {
+                textPart = JSON.stringify(m.text);
+            } catch (err) {
+                textPart = "[Non-serializable history item]";
+            }
+        }
+        return {
+            role: m.role,
+            parts: [{ text: textPart }]
+        };
+    }) : [];
 
     try {
         const response = await chatWithAnalyst(history, userMsg);
