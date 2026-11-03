@@ -282,5 +282,4 @@ export enum ViewState {
   FORENSICS = 'FORENSICS',
   SYNTHESIS = 'SYNTHESIS',
   CHAT = 'CHAT',
-  WORKSPACE = 'WORKSPACE',
 }

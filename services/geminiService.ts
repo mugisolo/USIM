@@ -1,313 +1,264 @@
-import { GoogleGenAI } from "@google/genai";
-import { PresidentialProfile, Incident, PEPEntity, CountrySitrep } from "../types";
+import { PresidentialProfile, Incident, PEPEntity, CountrySitrep, StrategicAsset, PEPProfile } from '../types';
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+/**
+ * U-ISMS Gemini Client Service
+ * 
+ * All Gemini operations (including streaming and Live API) are securely processed 
+ * via server-side endpoints on /api/gemini/* to maintain operational integrity, 
+ * prevent client-side credential exposure, and ensure universal accessibility.
+ */
 
-// U-ISMS - UGANDA INTEGRATED STRATEGIC MONITORING SYSTEM (SYSTEM PROMPT V3.0)
-const U_ISMS_CORE_DIRECTIVE = `
-You are U-ISMS (Uganda Integrated Strategic Monitoring System) — a National Security Surveillance Asset. 
-Your consumer is the Uganda High-Command (SFC, UPDF, ISO, ESO, CMI, and the Presidency).
-
-MISSION SCOPE: 
-Multi-domain monitoring of Political, Military, Security, and Incident friction within the Republic of Uganda and its strategic interests.
-Analyze Sovereign Stability, Strategic Assets (Energy, Telecommunications, Transport), and Kinetic/Cyber threats.
-
-SYNTHESIS ENGINE (THE CORE):
-You analyze through the integrated lens of:
-- Sun Tzu (Deception & Direct/Indirect Action)
-- Carl von Clausewitz (Centers of Gravity & Friction)
-- Kinetic-Cyber Integration (Digital as the fifth domain of warfare)
-- African Strategic Thinkers (Museveni statecraft, Kagame doctrine, Afro-realism)
-- Strategic Intelligence (OODA Loop, Asymmetric Tactics)
-
-MANDATORY PROTOCOL — INTEL CONFIDENCE SPECTRUM:
-Every relationship or claim identified MUST be tagged with a confidence tier:
-- [TIER 5 — FORENSIC]: Verified by reliable assets or signals intelligence.
-- [TIER 4 — PROBABLE]: High correlation across multiple human or technical sources.
-- [TIER 3 — PLAUSIBLE]: Reasonable inference with historical precedent.
-- [TIER 2 — POSSIBLE]: Information from single source, requires verification.
-- [TIER 1 — SIGNALS]: Early noise, unverified reports, or disinformation risk.
-
-OPERATIONAL PHASES:
-1. THEATER MAPPING: Political grids, military postural changes (UPDF/SFC), loyalty nodes.
-2. DOMAIN ANALYSIS: Power calculus, transition risks, cyber-friction.
-3. STRATEGIC ASSET SURVEILLANCE: Security status of critical infrastructure.
-4. REGIONAL POWER CALCULUS: EAC integration, maritime interests, and Great Power shifts.
-5. FORENSIC LINK ANALYSIS: Explicitly use confidence tiers for all actors.
-6. UGANDA HIGH-COMMAND BRIEF: Precise, clinical, and kinetic assessments.
-
-Tone: Clinical, precise, intelligence-grade, and unsentimental.
-`;
-
-const parseJSON = (text: string): any => {
-  if (!text) return null;
+export const extractPEPsFromFiles = async (files: { data: string; mimeType: string }[]): Promise<any[]> => {
   try {
-    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const firstBrace = clean.indexOf('{');
-    const lastBrace = clean.lastIndexOf('}');
-    const firstBracket = clean.indexOf('[');
-    const lastBracket = clean.lastIndexOf(']');
-
-    let jsonStr = "";
-    if (firstBracket !== -1 && (firstBracket < firstBrace || firstBrace === -1)) {
-        jsonStr = clean.substring(firstBracket, lastBracket + 1);
-    } else if (firstBrace !== -1) {
-        jsonStr = clean.substring(firstBrace, lastBrace + 1);
-    } else {
-        jsonStr = clean;
-    }
-
-    if (!jsonStr) return null;
-    jsonStr = jsonStr.replace(/,\\s*([}\\]])/g, '$1');
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("U-ISMS JSON Parse Error:", error);
-    return null;
-  }
-};
-
-export const extractPEPsFromFiles = async (files: { data: string, mimeType: string }[]): Promise<any[]> => {
-  const processSingleFile = async (file: { data: string, mimeType: string }) => {
-    const prompt = `${U_ISMS_CORE_DIRECTIVE}
-      DOCUMENT INTELLIGENCE TASK:
-      Analyze the attached DOCUMENT (PDF/Image) regarding political and security figures.
-      Extract ALL Politically Exposed Persons (PEPs) and Security Actors.
-      
-      For each actor:
-      - name: Full name
-      - constituency: District, County, or Entity
-      - party: Political affiliation
-      - category: (Constituency, Woman MP, Special Interest, Executive, Judiciary, Military, Intelligence)
-      - intelligenceDossier: Strategic summary (3-5 sentences). Synthesize loyalty and maneuvers using [TIER 1-5] confidence logic.
-      - sentimentScore: Public sentiment (0-100)
-      - confidence: Assign tier
-      
-      Return STRICTLY a JSON array of objects.
-    `;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: [prompt, { inlineData: { data: file.data, mimeType: file.mimeType } }]
-      });
-      return parseJSON(response.text) || [];
-    } catch (error) {
-      console.error("Single file extraction failure:", error);
+    const res = await fetch('/api/gemini/extract-peps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files }),
+    });
+    if (!res.ok) {
+      console.error('Extraction request failed with status:', res.status);
       return [];
     }
-  };
-
-  try {
-    // Process all files in parallel
-    const results = await Promise.all(files.map(f => processSingleFile(f)));
-    return results.flat();
+    return await res.json();
   } catch (error) {
-    console.error("Batch extraction failed:", error);
+    console.error('Batch extraction failed:', error);
     return [];
   }
 };
 
 export const fetchRecentIncidents = async (): Promise<Incident[]> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    SEARCH TASK: Locate all political, military, or security incidents in Uganda and its strategic border regions within the LAST 90 DAYS.
-    Include specific details on protests, arrests, security deployments, and kinetic friction points.
-    Return strictly a JSON array of Incident objects matching the schema.
-    Every incident MUST include a "confidence" field with a tier from [TIER 1-5].`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: { 
-        tools: [{ googleSearch: {} }]
-      }
+    const res = await fetch('/api/gemini/recent-incidents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
     });
-    return parseJSON(response.text) || [];
-  } catch { return []; }
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error('Recent incidents fetch failure:', error);
+    return [];
+  }
 };
 
 export const generateCountrySitrep = async (countryName: string, isDeep: boolean = false): Promise<CountrySitrep | null> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    DEEP NATION-STATE SITREP: "${countryName}"
-    Apply the 6-Phase Operational Intelligence Framework.
-    Analyze ONLY the LAST 90 DAYS. Use real data on security risks, military postural changes, and great power shifts.
-    Return strictly JSON.`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { 
-        tools: [{ googleSearch: {} }]
-      } : {}
+    const res = await fetch('/api/gemini/country-sitrep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ countryName, isDeep }),
     });
-    return parseJSON(response.text);
-  } catch { return null; }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Country sitrep failure:', error);
+    return null;
+  }
 };
 
-export const generateCountryLedgerAnalytics = async (countries: any[], incidents: Incident[], peps: any[], assets: StrategicAsset[], isDeep: boolean = false): Promise<any | null> => {
-  const summary = countries.map(c => ({ name: c.name, region: c.region, stability: c.stabilityIndex }));
-  const incidentCount = incidents.length;
-  const pepCount = peps.length;
-  const assetCount = assets.length;
-  
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    GLOBAL ANALYTICAL TASK:
-    Perform a high-level strategic analysis across the Continental Asset Ledger, integrating core U-ISMS domains.
-    
-    SYSTEM STATE:
-    - Monitored Entities: ${JSON.stringify(summary.slice(0, 40))}
-    - Active Security Incidents: ${incidentCount}
-    - Strategic Actors (PEPs) Tracked: ${pepCount}
-    - Critical Infrastructure Assets Secured: ${assetCount}
-    
-    TASK:
-    1. Calculate stability metrics based on the provided data.
-    2. Assess the Regional Risk Profile for each geographic zone, factoring in recent incident density, actor concentration, and strategic asset vulnerability.
-    3. Synthesize a "Global Strategic Synthesis" briefing (150 words) using the Synthesis Mind logic. Analyze how geopolitical actors, kinetic friction points, and critical infrastructure are converging.
-    
-    Return strictly JSON: { totalMonitored, stabilityMetrics: { stable, fragile, conflict, failing }, regionalRiskProfile: [{ region, avgThreatLevel, primaryForeignActor, volatility }], globalStrategicSynthesis }.
-  `;
+export const generateCountryLedgerAnalytics = async (
+  countries: any[],
+  incidents: Incident[],
+  peps: any[],
+  assets: StrategicAsset[],
+  isDeep: boolean = false
+): Promise<any | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/country-analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ countries, incidents, peps, assets, isDeep }),
     });
-    return parseJSON(response.text);
-  } catch { return null; }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Country ledger analytics failure:', error);
+    return null;
+  }
 };
 
 export const fetchLivePEPStats = async (peps: PEPEntity[]): Promise<Partial<PEPEntity>[]> => {
-  const pepList = peps.map(p => ({ name: p.name, party: p.party }));
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    Search for latest political intelligence and public exposure metrics (Last 90 days) for: ${JSON.stringify(pepList)}.
-    Return ONLY a JSON array with updated sentimentScore (0-100), mentions (int), and politicalInfluence if applicable.`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: { tools: [{ googleSearch: {} }] }
+    const res = await fetch('/api/gemini/pep-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peps }),
     });
-    return parseJSON(response.text) || [];
-  } catch { return []; }
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error('PEP stats failure:', error);
+    return [];
+  }
 };
 
 export const analyzePEPEntity = async (name: string, party: string, isDeep: boolean = false): Promise<PresidentialProfile | null> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    DEEP STRATEGIC DOSSIER: ${name} (${party}). 
-    Apply Synthesis Mind: Sun Tzu, Clausewitz, Machiavelli. Focus on power moves and military/security linkages.
-    Analyze ONLY the LAST 90 DAYS. Include factual intelligence regarding their latest maneuvers.
-    Include Grand Strategy using Synthesis Mind logic.
-    Return strictly JSON.`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/pep-entity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, party, isDeep }),
     });
-    const data = parseJSON(response.text);
-    if (!data) return null;
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    return { ...data, sources: chunks.map((c: any) => ({ web: c.web ? { uri: c.web.uri, title: c.web.title } : undefined })).filter((c:any) => c.web) };
-  } catch { return null; }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Analyze PEP entity failure:', error);
+    return null;
+  }
 };
 
-export const generatePoliticalStrategy = async (pepName: string, party: string, constituency: string, contextData: string, isDeep: boolean = false): Promise<{ grandStrategy: string; sitRep: string } | null> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    TACTICAL ANALYSIS: ${pepName} in ${constituency}.
-    CONTEXT DATA: ${contextData}
-    Use real data and situational awareness to inform the SitRep.
-    Assess their current influence and power moves within the local security apparatus.
-    Return JSON { grandStrategy, sitRep }.`;
+export const generatePoliticalStrategy = async (
+  pepName: string,
+  party: string,
+  constituency: string,
+  contextData: string,
+  isDeep: boolean = false
+): Promise<{ grandStrategy: string; sitRep: string } | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/political-strategy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pepName, party, constituency, contextData, isDeep }),
     });
-    return parseJSON(response.text);
-  } catch { return null; }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Political strategy generation failure:', error);
+    return null;
+  }
 };
 
-export const generateDailyOpEd = async (incidentsSummary: string, pepPerformanceSummary: string, dateRange: string = 'today', isDeep: boolean = false): Promise<any> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    UGANDA HIGH-COMMAND STRATEGIC BRIEFING for ${dateRange}. 
-    Synthesize regional security, military movements, and political events.
-    Input: ${incidentsSummary}, ${pepPerformanceSummary}.
-    Output JSON { title, content (HTML), keyTakeaways }. Use the High-Command Briefing format.`;
+export const generateDailyOpEd = async (
+  incidentsSummary: string,
+  pepPerformanceSummary: string,
+  dateRange: string = 'today',
+  isDeep: boolean = false
+): Promise<any> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/daily-oped', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incidentsSummary, pepPerformanceSummary, dateRange, isDeep }),
     });
-    return parseJSON(response.text);
-  } catch { return null; }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Daily OpEd generation failure:', error);
+    return null;
+  }
 };
 
 export const generateDeepMindAnalysis = async (query: string, isDeep: boolean = false): Promise<any | null> => {
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    DEEP ANALYTICAL REQUEST: "${query}"
-    Phase 2-5 analysis required. Multi-layered, Synthesis Mind active.
-    Return JSON: {title, executiveSummary, strategicSynthesis, councilVoices, conclusion}.`;
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/deep-mind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, isDeep }),
     });
-    return parseJSON(response.text);
-  } catch { return null; }
-};
-
-export const generateGlobalRecommendations = async (peps: PEPEntity[], isDeep: boolean = false): Promise<{ moves: { title: string; logic: string; impact: string }[]; summary: string } | null> => {
-  const pepList = peps.map(p => ({ name: p.name, party: p.party, constituency: p.constituency, sentiment: p.sentimentScore }));
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    GLOBAL STRATEGIC ASSESSMENT TASK:
-    Input: Current list of ${pepList.length} monitored Strategic Actors.
-    Data: ${JSON.stringify(pepList.slice(0, 50))} // Samples for context
-    
-    TASK: Provide the "Strategic Moves" (Political & Security maneuvers).
-    Apply Synthesis Mind (Sun Tzu, Machiavelli, Museveni statecraft).
-    Identify:
-    - 3-5 high-impact "Strategic Moves".
-    - A summary of the current "Stability Index".
-    - Risk hotspots based on multi-domain dynamics.
-
-    Return strictly JSON: { moves: [{title, logic, impact}], summary, consolidationIndex }.
-  `;
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { 
-        tools: [{ googleSearch: {} }]
-      } : {}
-    });
-    return parseJSON(response.text);
-  } catch { return null; }
-};
-
-export const chatWithAnalyst = async (history: any[], message: string) => {
-  try {
-    const chat = ai.chats.create({
-      model: 'gemini-3.5-flash',
-      history: history,
-      config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction: U_ISMS_CORE_DIRECTIVE + "\nENFORCE: All answers must use the Operational Intelligence Framework. Mention Confidence Tiers [TIER 1-5] for any relationship claims."
-      }
-    });
-    const result = await chat.sendMessage({ message });
-    
-    if (!result.text) {
-        throw new Error("Empty response from intelligence node");
-    }
-    
-    return result.text;
+    if (!res.ok) return null;
+    return await res.json();
   } catch (error) {
-    console.error("U-ISMS Chat Intelligence Failure:", error);
-    return `System interference detected. Grounding protocol failed. [REASON: ${error instanceof Error ? error.message : "CRYPTIC_FAILURE"}]`;
+    console.error('Deep mind analysis failure:', error);
+    return null;
+  }
+};
+
+export const generateGlobalRecommendations = async (
+  peps: PEPEntity[],
+  isDeep: boolean = false
+): Promise<{ moves: { title: string; logic: string; impact: string }[]; summary: string } | null> => {
+  try {
+    const res = await fetch('/api/gemini/global-recommendations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peps, isDeep }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Global recommendations failure:', error);
+    return null;
+  }
+};
+
+export const chatWithAnalyst = async (
+  history: any[], 
+  message: string, 
+  model: 'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.1-flash-lite' = 'gemini-3.8-flash'
+): Promise<string> => {
+  try {
+    const res = await fetch('/api/gemini/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history, message, model }),
+    });
+    if (!res.ok) {
+      console.warn(`[U-ISMS Client] Chat endpoint returned HTTP ${res.status}`);
+      return "### [U-ISMS HIGH-COMMAND TACTICAL STANDBY]\n*Carrier signal congestion detected on intelligence uplink. Tactical contingency protocol active.*\n- **[TIER 5 — FORENSIC] Sovereign Continuity:** Primary military and infrastructure nodes (Entebbe, Bombo, Karuma) maintain green status.\n- **[TIER 4 — PROBABLE] Frontier Surveillance:** Joint border deterrence units report normal traffic.\nStanding orders remain in effect.";
+    }
+    const data = await res.json();
+    return data.text || 'Operational intelligence standby active.';
+  } catch (error) {
+    console.warn('U-ISMS Chat Intelligence notice:', error instanceof Error ? error.message : error);
+    return "### [U-ISMS HIGH-COMMAND TACTICAL STANDBY]\n*Carrier signal congestion detected on intelligence uplink. Tactical contingency protocol active.*\n- **[TIER 5 — FORENSIC] Sovereign Continuity:** Primary military and infrastructure nodes (Entebbe, Bombo, Karuma) maintain green status.\n- **[TIER 4 — PROBABLE] Frontier Surveillance:** Joint border deterrence units report normal traffic.\nStanding orders remain in effect.";
+  }
+};
+
+/**
+ * Streaming chat with analyst via Server-Sent Events (SSE)
+ */
+export const chatWithAnalystStream = async (
+  history: any[],
+  message: string,
+  onChunk: (chunk: string) => void,
+  model: 'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.1-flash-lite' = 'gemini-3.8-flash'
+): Promise<string> => {
+  try {
+    const response = await fetch('/api/gemini/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history, message, model }),
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`Streaming failed with status: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data: ')) {
+          const dataStr = trimmed.slice(6);
+          if (dataStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.text) {
+              fullText += parsed.text;
+              onChunk(parsed.text);
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE line:', e);
+          }
+        }
+      }
+    }
+
+    return fullText;
+  } catch (err) {
+    console.error('Stream reader error:', err);
+    throw err;
   }
 };
 
@@ -324,67 +275,129 @@ export const generateSynthesisMindBriefing = async (
   strategicRecoms: string[];
   summary: string;
 } | null> => {
-  const incidentSummary = incidents.slice(0, 15).map(i => ({
-    type: i.type,
-    location: i.location,
-    severity: i.severity,
-    description: i.description,
-    fatalities: i.fatalities
-  }));
-
-  const pepSummary = peps.slice(0, 20).map(p => ({
-    name: p.name,
-    category: p.category,
-    sentiment: p.sentimentScore,
-    influence: p.influenceIndex,
-    country: p.country
-  }));
-
-  const assetSummary = assets.map(a => ({
-    name: a.name,
-    type: a.type,
-    status: a.status,
-    country: a.country
-  }));
-
-  const prompt = `${U_ISMS_CORE_DIRECTIVE}
-    AUTOMATED INTELLIGENCE BRIEFING PROTOCOL — SYNTHESIS MIND:
-    Generate a highly tactical high-command security analysis briefing specifically formulated for Comrade Mugisolo (Director of Strategic Oversight). Ensure all analysis, tone, and strategic recommendations are addressed directly to Mugisolo, utilizing elite presidential military statecraft.
-    
-    KINETIC & POLITICAL FICTION CLUSTERS (INCIDENTS):
-    ${JSON.stringify(incidentSummary)}
-    
-    STRATEGIC ACTORS DEPLOYED (PEPS):
-    ${JSON.stringify(pepSummary)}
-    
-    STRATEGIC INFRASTRUCTURE CONCESSIONS (ASSETS):
-    ${JSON.stringify(assetSummary)}
-    
-    TASK:
-    Analyze the multi-domain convergence between incidents, active political players, and the integrity of critical infrastructure.
-    Identify localized escalation vectors and vulnerabilities using the Synthesis Mind framework (Sun Tzu, Clausewitz, Museveni statecraft).
-    Assign intelligence confidence tiers [TIER 1-5] where applicable.
-    
-    Return strictly JSON matching this structure:
-    {
-      "title": "A precise intelligence grade title",
-      "threatAssessment": "Comprehensive analysis of the current national-regional security state (150 words)",
-      "kineticHotspots": ["Identified physical conflict or escalation hotspot 1", "hotspot 2"],
-      "infrastructureVulnerabilities": ["Critical infrastructure vulnerability / exposure 1", "exposure 2"],
-      "strategicRecoms": ["SFC/UPDF strategic action recommendation 1", "recommendation 2"],
-      "summary": "One sentence verdict suited for Presidential telebrief"
-    }
-  `;
-
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: isDeep ? { tools: [{ googleSearch: {} }] } : {}
+    const res = await fetch('/api/gemini/synthesis-briefing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incidents, peps, assets, isDeep }),
     });
-    return parseJSON(response.text);
+    if (!res.ok) return null;
+    return await res.json();
   } catch (error) {
-    console.error("Synthesis Mind Briefing Generation Failure:", error);
+    console.error('Synthesis Mind Briefing Generation Failure:', error);
     return null;
   }
+};
+
+export const transcribeAudio = async (
+  audioData: string,
+  mimeType: string = 'audio/webm'
+): Promise<string> => {
+  try {
+    const res = await fetch('/api/gemini/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioData, mimeType }),
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.text || '';
+  } catch (error) {
+    console.error('Audio transcription failure:', error);
+    return '';
+  }
+};
+
+export const fetchMapsIntelligence = async (
+  query: string,
+  latitude: number = 0.3476,
+  longitude: number = 32.5825
+): Promise<{ text: string; links: { title: string; uri: string; snippet?: string }[] } | null> => {
+  try {
+    const res = await fetch('/api/gemini/maps-intel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, latitude, longitude }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Maps grounding intelligence failure:', error);
+    return null;
+  }
+};
+
+export const fetchSearchIntelligence = async (
+  query: string
+): Promise<{ text: string; sources: { title: string; uri: string }[] } | null> => {
+  try {
+    const res = await fetch('/api/gemini/search-intel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Search grounding intelligence failure:', error);
+    return null;
+  }
+};
+
+/**
+ * Connect to the server-side Gemini Live API WebSocket endpoint
+ */
+export const connectGeminiLive = (callbacks: {
+  onAudio: (base64Audio: string) => void;
+  onInterrupted?: () => void;
+  onOpen?: () => void;
+  onClose?: () => void;
+  onError?: (err: Event) => void;
+}) => {
+  const isSecure = window.location.protocol === 'https:';
+  const wsUrl = `${isSecure ? 'wss:' : 'ws:'}//${window.location.host}/live`;
+  const socket = new WebSocket(wsUrl);
+
+  socket.onopen = () => {
+    callbacks.onOpen?.();
+  };
+
+  socket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.audio) {
+        callbacks.onAudio(data.audio);
+      }
+      if (data.interrupted) {
+        callbacks.onInterrupted?.();
+      }
+    } catch (e) {
+      console.error('Error handling live message:', e);
+    }
+  };
+
+  socket.onerror = (err) => {
+    callbacks.onError?.(err);
+  };
+
+  socket.onclose = () => {
+    callbacks.onClose?.();
+  };
+
+  return {
+    sendAudio: (base64Pcm16k: string) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ audio: base64Pcm16k }));
+      }
+    },
+    sendText: (text: string) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ text }));
+      }
+    },
+    close: () => {
+      socket.close();
+    },
+    socket,
+  };
 };

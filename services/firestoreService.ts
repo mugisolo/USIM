@@ -1,9 +1,6 @@
-import { db } from '../firebaseConfig';
-import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, orderBy, getDocs, where } from "firebase/firestore";
+import { db, auth } from '../firebaseConfig';
+import { collection, addDoc, setDoc, onSnapshot, deleteDoc, doc, updateDoc, query, orderBy, getDocs, where } from "firebase/firestore";
 import { Incident, PEPProfile, StrategicAsset, PEPRegistryRecord } from '../types';
-import { getAuth } from "firebase/auth";
-
-const auth = getAuth();
 
 // Collection References
 const INCIDENTS_COL = 'incidents';
@@ -33,17 +30,35 @@ interface FirestoreErrorInfo {
 /**
  * Chat Persistence
  */
-export const saveChatMessage = async (userId: string, role: 'user' | 'model', text: string) => {
+export const saveChatMessage = async (
+    userId: string, 
+    role: 'user' | 'model', 
+    text: string, 
+    modelTier: string = 'gemini-3.8-flash'
+) => {
     if (!db) return;
     try {
         await addDoc(collection(db, CHATS_COL), {
             userId,
             role,
             text,
+            modelTier,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         handleFirestoreError(error, 'create', CHATS_COL);
+    }
+};
+
+export const clearChatHistory = async (userId: string) => {
+    if (!db) return;
+    try {
+        const q = query(collection(db, CHATS_COL), where("userId", "==", userId));
+        const snapshot = await getDocs(q);
+        const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, CHATS_COL, d.id)));
+        await Promise.all(deletePromises);
+    } catch (error) {
+        handleFirestoreError(error, 'delete', CHATS_COL);
     }
 };
 
@@ -61,7 +76,10 @@ export const subscribeToChatHistory = (
     );
     
     return onSnapshot(q, (snapshot) => {
-        const messages = snapshot.docs.map(doc => doc.data());
+        const messages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
         onData(messages);
     }, (error) => {
         handleFirestoreError(error, 'list', CHATS_COL);
@@ -75,23 +93,18 @@ export const subscribeToChatHistory = (
 export const updateUserMetadata = async (userId: string, data: any) => {
     if (!db) return;
     try {
-        const userDocRef = doc(db, USERS_COL, userId);
-        const userDoc = await getDocs(query(collection(db, USERS_COL), where("userId", "==", userId)));
-        
-        if (userDoc.empty) {
-            await addDoc(collection(db, USERS_COL), {
-                ...data,
-                userId,
-                updatedAt: new Date().toISOString()
-            });
-        } else {
-            await updateDoc(doc(db, USERS_COL, userDoc.docs[0].id), {
-                ...data,
-                updatedAt: new Date().toISOString()
-            });
-        }
+        const userRef = doc(db, USERS_COL, userId);
+        const isDirector = auth.currentUser?.email === 'mugisolo@gmail.com' || data.email === 'mugisolo@gmail.com';
+        await setDoc(userRef, {
+            ...data,
+            userId,
+            email: auth.currentUser?.email || data.email || null,
+            isSuperUser: isDirector || data.isSuperUser || false,
+            role: isDirector ? 'Director of Strategic Oversight' : (data.role || 'Intelligence Liaison'),
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
     } catch (error) {
-        handleFirestoreError(error, 'write', USERS_COL);
+        handleFirestoreError(error, 'write', `${USERS_COL}/${userId}`);
     }
 };
 
@@ -100,11 +113,13 @@ export const subscribeToUserMetadata = (
     onData: (data: any) => void
 ) => {
     if (!db) return () => {};
-    const q = query(collection(db, USERS_COL), where("userId", "==", userId));
-    return onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-            onData(snapshot.docs[0].data());
+    const userRef = doc(db, USERS_COL, userId);
+    return onSnapshot(userRef, (snapshot) => {
+        if (snapshot.exists()) {
+            onData(snapshot.data());
         }
+    }, (error) => {
+        handleFirestoreError(error, 'get', `${USERS_COL}/${userId}`);
     });
 };
 
