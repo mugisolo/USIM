@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Shield, 
   Terminal, 
   User, 
   Clock, 
   Search, 
   Trash2, 
   X, 
-  ChevronRight, 
   Download, 
   AlertTriangle, 
-  CheckCircle, 
   Server,
   Play
 } from 'lucide-react';
@@ -64,7 +61,6 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Load logs on mount
   useEffect(() => {
     const loadLogs = () => {
       try {
@@ -72,7 +68,6 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
         if (existing) {
           setLogs(JSON.parse(existing));
         } else {
-          // Add default init entries
           const initialLogs: AuditLogEntry[] = [
             {
               id: 'init-1',
@@ -106,7 +101,6 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
 
     loadLogs();
 
-    // Listen to real-time additions
     const handleNewLog = (e: Event) => {
       const customEvent = e as CustomEvent<AuditLogEntry>;
       if (customEvent.detail) {
@@ -120,7 +114,6 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
     };
   }, []);
 
-  // Filter logs
   const filteredLogs = useMemo(() => {
     return logs
       .filter(log => {
@@ -166,11 +159,9 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
     }
   };
 
-  // Simulated Alert Trigger
   const triggerMockKineticIncident = async () => {
     setIsSimulating(true);
     try {
-      // Create a mock high-severity kinetic incident and push to firestore
       const mockIncident: Incident = {
         id: `mock-${Math.random().toString(36).substring(2, 7)}`,
         date: new Date().toISOString().split('T')[0],
@@ -197,14 +188,14 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
   const getCategoryStyles = (category: AuditLogEntry['category']) => {
     switch (category) {
       case 'SECURITY':
-        return 'text-brotherhood-crimson bg-brotherhood-crimson/10 border-brotherhood-crimson/20';
+        return 'text-danger bg-danger/10 border-danger/30';
       case 'USER_QUERY':
-        return 'text-crested-gold bg-crested-gold/10 border-crested-gold/20';
+        return 'text-accent bg-accent/10 border-accent/30';
       case 'DATA_OPERATION':
-        return 'text-intel-blue bg-intel-blue/10 border-intel-blue/20';
+        return 'text-info bg-info/10 border-info/30';
       case 'SYSTEM':
       default:
-        return 'text-savanna-sage bg-savanna-sage/10 border-savanna-sage/20';
+        return 'text-success bg-success/10 border-success/30';
     }
   };
 
@@ -212,86 +203,82 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div 
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
+            animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 z-[70] backdrop-blur-sm"
+            className="fixed inset-0 bg-black/75 z-[70] backdrop-blur-sm"
           />
 
-          {/* Sidebar Drawer */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: '0%' }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full max-w-md bg-kampala-obsidian border-l border-white/5 shadow-2xl z-[80] flex flex-col font-sans"
+            transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+            className="fixed top-0 right-0 h-full w-full max-w-md bg-bg-surface border-l border-border-subtle shadow-2xl z-[80] flex flex-col font-sans"
             id="operational-audit-panel"
           >
             {/* Header */}
-            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-lake-victoria/40">
+            <div className="p-5 border-b border-border-subtle flex items-center justify-between bg-bg-elevated/50">
               <div className="flex items-center gap-3">
-                <Terminal className="text-crested-gold" size={20} />
+                <Terminal className="text-accent" size={18} />
                 <div>
-                  <h3 className="text-sm font-black text-pearl-africa uppercase tracking-widest">Operational Audit Log</h3>
-                  <p className="text-[9px] font-mono text-crane-grey uppercase tracking-wider">Session Accountability System</p>
+                  <h3 className="font-display text-sm font-semibold text-text-primary">Operational Audit Log</h3>
+                  <p className="text-[11px] font-mono text-text-secondary uppercase tracking-wider">Session Accountability Ledger</p>
                 </div>
               </div>
               <button 
                 onClick={onClose}
-                className="p-1 text-crane-grey hover:text-white hover:bg-white/5 rounded-full transition-colors"
+                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Simulated Live Alert trigger for testing */}
-            <div className="px-6 py-4 border-b border-white/5 bg-brotherhood-crimson/5 flex flex-col gap-2">
+            {/* Simulated Live Alert trigger */}
+            <div className="px-5 py-4 border-b border-border-subtle bg-danger/5 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-brotherhood-crimson uppercase tracking-wider flex items-center gap-1">
-                  <AlertTriangle size={12} className="animate-pulse" /> Kinetic Incident Sim
+                <span className="text-xs font-mono font-semibold text-danger uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle size={13} /> Kinetic Incident Simulation
                 </span>
-                <span className="text-[8px] font-mono text-crane-grey">FOR EVALUATION ONLY</span>
+                <span className="text-[10px] font-mono text-text-secondary">VALIDATION</span>
               </div>
-              <p className="text-[10px] text-crane-grey leading-relaxed">
-                Add a high-severity critical incident to Firestore to validate the automated real-time alert banner.
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Add a critical incident to Firestore to validate the real-time alert banner.
               </p>
               <button
                 onClick={triggerMockKineticIncident}
                 disabled={isSimulating}
-                className="w-full mt-1 px-3 py-1.5 bg-brotherhood-crimson/20 hover:bg-brotherhood-crimson/40 border border-brotherhood-crimson/30 rounded text-[10px] font-mono font-bold text-brotherhood-crimson transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full mt-1 px-3 py-2 bg-danger/15 hover:bg-danger/25 border border-danger/30 rounded-xl text-xs font-mono font-semibold text-danger transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Play size={10} className="fill-current" />
+                <Play size={11} className="fill-current" />
                 {isSimulating ? "UPLOADING INCIDENT..." : "TRIGGER CRITICAL KINETIC INCIDENT"}
               </button>
             </div>
 
             {/* Filters */}
-            <div className="p-6 border-b border-white/5 space-y-4">
-              {/* Search Bar */}
+            <div className="p-5 border-b border-border-subtle space-y-3">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-crane-grey" />
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
                 <input
                   type="text"
                   placeholder="Filter logs by keyword..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-lake-victoria/50 border border-white/10 rounded font-mono text-xs text-pearl-africa placeholder:text-crane-grey focus:outline-none focus:border-crested-gold/40"
+                  className="w-full pl-9 pr-4 py-2 bg-bg-elevated border border-border-subtle rounded-xl font-mono text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
                 />
               </div>
 
-              {/* Category Toggles */}
               <div className="flex flex-wrap gap-1.5">
                 {['ALL', 'SYSTEM', 'SECURITY', 'USER_QUERY', 'DATA_OPERATION'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-2 py-1 rounded text-[9px] font-mono font-bold uppercase transition-all ${
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-medium uppercase transition-colors ${
                       selectedCategory === cat 
-                        ? 'bg-crested-gold text-lake-victoria shadow-[0_0_8px_rgba(241,165,17,0.3)]' 
-                        : 'bg-white/5 text-crane-grey border border-white/5 hover:bg-white/10'
+                        ? 'bg-accent text-accent-ink font-semibold' 
+                        : 'bg-bg-elevated text-text-secondary border border-border-subtle hover:text-text-primary'
                     }`}
                   >
                     {cat.replace('_', ' ')}
@@ -301,35 +288,35 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
             </div>
 
             {/* Logs List */}
-            <div className="flex-grow overflow-y-auto p-6 space-y-4">
+            <div className="flex-grow overflow-y-auto p-5 space-y-3">
               {filteredLogs.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-12">
-                  <Server className="text-white/10" size={32} />
-                  <p className="text-xs font-mono text-crane-grey uppercase tracking-wider">No audit logs match criteria</p>
+                  <Server className="text-text-secondary/40" size={28} />
+                  <p className="text-xs font-mono text-text-secondary uppercase">No audit logs match criteria</p>
                 </div>
               ) : (
                 filteredLogs.map((log) => (
                   <div 
                     key={log.id} 
-                    className="p-3 bg-white/[0.02] border border-white/5 rounded space-y-2 hover:bg-white/[0.04] transition-all"
+                    className="p-3.5 bg-bg-elevated/50 border border-border-subtle rounded-xl space-y-2 hover:bg-bg-elevated transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase border ${getCategoryStyles(log.category)}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-medium uppercase border ${getCategoryStyles(log.category)}`}>
                         {log.category.replace('_', ' ')}
                       </span>
-                      <div className="flex items-center gap-1 text-[8px] font-mono text-crane-grey">
-                        <Clock size={10} />
+                      <div className="flex items-center gap-1 text-[11px] font-mono text-text-secondary tabular-nums">
+                        <Clock size={11} />
                         {new Date(log.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                     
-                    <p className="text-xs text-pearl-africa font-mono leading-relaxed select-all">
+                    <p className="text-xs text-text-primary font-mono leading-relaxed select-all">
                       {log.action}
                     </p>
 
-                    <div className="flex items-center justify-between text-[8px] font-mono text-crane-grey border-t border-white/5 pt-1.5 mt-1.5">
-                      <span className="flex items-center gap-1 text-crested-gold">
-                        <User size={10} /> Operator: {log.operator}
+                    <div className="flex items-center justify-between text-[11px] font-mono text-text-secondary border-t border-border-subtle pt-2">
+                      <span className="flex items-center gap-1 text-text-primary">
+                        <User size={11} className="text-accent" /> {log.operator}
                       </span>
                       <span>ID: {log.id}</span>
                     </div>
@@ -339,19 +326,19 @@ export const OperationalAuditPanel: React.FC<OperationalAuditPanelProps> = ({ is
             </div>
 
             {/* Footer Controls */}
-            <div className="p-6 border-t border-white/5 bg-lake-victoria/20 flex items-center justify-between gap-4">
+            <div className="p-5 border-t border-border-subtle bg-bg-elevated/40 flex items-center justify-between gap-3">
               <button
                 onClick={handleClearLogs}
-                className="px-3 py-2 bg-white/5 hover:bg-brotherhood-crimson/15 border border-white/10 hover:border-brotherhood-crimson/20 text-crane-grey hover:text-brotherhood-crimson rounded text-[10px] font-mono font-bold uppercase flex items-center gap-1.5 transition-all"
+                className="px-3.5 py-2 bg-bg-elevated hover:bg-danger/10 border border-border-subtle hover:border-danger/30 text-text-secondary hover:text-danger rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors"
               >
-                <Trash2 size={12} /> Clear Logs
+                <Trash2 size={13} /> Clear
               </button>
               
               <button
                 onClick={handleExportLogs}
-                className="flex-grow py-2 bg-crested-gold hover:bg-watch-gold text-lake-victoria rounded text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 transition-all shadow-md"
+                className="flex-grow py-2 bg-accent hover:opacity-90 text-accent-ink rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-opacity"
               >
-                <Download size={12} /> Export Audit Report
+                <Download size={13} /> Export Audit Report
               </button>
             </div>
           </motion.div>

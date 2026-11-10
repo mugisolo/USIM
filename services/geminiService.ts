@@ -181,27 +181,73 @@ export const generateGlobalRecommendations = async (
   }
 };
 
+export const verifyGeminiApiKey = async (): Promise<{ configured: boolean; sovereignFallbackReady: boolean }> => {
+  const clientEnvPresent = Boolean(
+    typeof process !== 'undefined' &&
+      process.env &&
+      (process.env.API_KEY || process.env.GEMINI_API_KEY)
+  );
+  try {
+    const res = await fetch('/api/gemini/key-status');
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        configured: Boolean(data.configured || clientEnvPresent),
+        sovereignFallbackReady: Boolean(data.sovereignFallbackReady ?? true),
+      };
+    }
+  } catch {
+    // Fallback to local check if endpoint is unreachable
+  }
+  return { configured: clientEnvPresent, sovereignFallbackReady: true };
+};
+
 export const chatWithAnalyst = async (
   history: any[], 
   message: string, 
   model: 'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.1-flash-lite' = 'gemini-3.8-flash'
 ): Promise<string> => {
-  try {
-    const res = await fetch('/api/gemini/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ history, message, model }),
-    });
-    if (!res.ok) {
-      console.warn(`[U-ISMS Client] Chat endpoint returned HTTP ${res.status}`);
-      return "### [U-ISMS HIGH-COMMAND TACTICAL STANDBY]\n*Carrier signal congestion detected on intelligence uplink. Tactical contingency protocol active.*\n- **[TIER 5 — FORENSIC] Sovereign Continuity:** Primary military and infrastructure nodes (Entebbe, Bombo, Karuma) maintain green status.\n- **[TIER 4 — PROBABLE] Frontier Surveillance:** Joint border deterrence units report normal traffic.\nStanding orders remain in effect.";
+  await verifyGeminiApiKey();
+
+  const fallbackOrder: Array<'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.1-flash-lite'> =
+    model === 'gemini-4-argon'
+      ? ['gemini-4-argon', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']
+      : model === 'gemini-3.8-flash'
+      ? ['gemini-3.8-flash', 'gemini-3.1-flash-lite']
+      : ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+
+  for (let attempt = 0; attempt < fallbackOrder.length; attempt++) {
+    const targetModel = fallbackOrder[attempt];
+    try {
+      const res = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history, message, model: targetModel }),
+      });
+
+      if (res.status === 429 || res.status === 402 || res.status === 503) {
+        const delayMs = 600 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      if (!res.ok) {
+        console.warn(`[U-ISMS Client] Chat endpoint returned HTTP ${res.status} on ${targetModel}`);
+        continue;
+      }
+
+      const data = await res.json();
+      if (data?.text && typeof data.text === 'string' && data.text.trim().length > 0) {
+        return data.text;
+      }
+    } catch (error) {
+      console.warn(`U-ISMS Chat attempt ${attempt + 1} (${targetModel}) notice:`, error instanceof Error ? error.message : error);
+      const delayMs = 500 * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
-    const data = await res.json();
-    return data.text || 'Operational intelligence standby active.';
-  } catch (error) {
-    console.warn('U-ISMS Chat Intelligence notice:', error instanceof Error ? error.message : error);
-    return "### [U-ISMS HIGH-COMMAND TACTICAL STANDBY]\n*Carrier signal congestion detected on intelligence uplink. Tactical contingency protocol active.*\n- **[TIER 5 — FORENSIC] Sovereign Continuity:** Primary military and infrastructure nodes (Entebbe, Bombo, Karuma) maintain green status.\n- **[TIER 4 — PROBABLE] Frontier Surveillance:** Joint border deterrence units report normal traffic.\nStanding orders remain in effect.";
   }
+
+  return "### [U-ISMS HIGH-COMMAND TACTICAL STANDBY]\n*Carrier signal congestion detected on intelligence uplink. Tactical contingency protocol active.*\n- **[TIER 5 — FORENSIC] Sovereign Continuity:** Primary military and infrastructure nodes (Entebbe, Bombo, Karuma) maintain green status.\n- **[TIER 4 — PROBABLE] Frontier Surveillance:** Joint border deterrence units report normal traffic.\nStanding orders remain in effect.";
 };
 
 /**

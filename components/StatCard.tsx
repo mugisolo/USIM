@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
@@ -14,37 +13,37 @@ interface StatCardProps {
 export const StatCard: React.FC<StatCardProps> = ({ title, value, change, changeType = 'neutral', icon: Icon, color = "blue" }) => {
   const getColorClass = () => {
     switch (color) {
-      case 'red': return 'text-red-500 bg-red-500/10';
-      case 'green': return 'text-green-500 bg-green-500/10';
-      case 'orange': return 'text-orange-500 bg-orange-500/10';
-      case 'purple': return 'text-purple-500 bg-purple-500/10';
-      default: return 'text-blue-500 bg-blue-500/10';
+      case 'red': return 'text-danger bg-danger/10 border-danger/30';
+      case 'green': return 'text-success bg-success/10 border-success/30';
+      case 'orange': return 'text-warning bg-warning/10 border-warning/30';
+      case 'purple': return 'text-accent bg-accent/10 border-accent/30';
+      default: return 'text-info bg-info/10 border-info/30';
     }
   };
 
   const getChangeColor = () => {
-    if (changeType === 'positive') return 'text-green-400';
-    if (changeType === 'negative') return 'text-red-400';
-    return 'text-slate-400';
+    if (changeType === 'positive') return 'text-success';
+    if (changeType === 'negative') return 'text-danger';
+    return 'text-text-secondary';
   };
 
   return (
-    <div className="bg-slate-800 rounded-xl p-8 border border-slate-700 shadow-lg">
-      <div className="flex justify-between items-start mb-4">
+    <div className="bg-bg-surface rounded-2xl p-6 border border-border-subtle">
+      <div className="flex justify-between items-start mb-3">
         <div>
-          <p className="text-slate-400 text-base font-medium mb-2">{title}</p>
-          <h3 className="text-4xl font-bold text-white">{value}</h3>
+          <p className="text-text-secondary text-xs font-mono uppercase tracking-wider mb-1">{title}</p>
+          <h3 className="font-display text-3xl font-bold text-text-primary tabular-nums">{value}</h3>
         </div>
-        <div className={`p-4 rounded-lg ${getColorClass()}`}>
-          <Icon size={28} />
+        <div className={`p-3 rounded-xl border ${getColorClass()}`}>
+          <Icon size={20} />
         </div>
       </div>
       {change && (
-        <div className="flex items-center text-sm">
-          <span className={`font-medium ${getChangeColor()} mr-2`}>
+        <div className="flex items-center text-xs font-mono">
+          <span className={`font-semibold ${getChangeColor()} mr-2 tabular-nums`}>
             {change}
           </span>
-          <span className="text-slate-500">vs last 30 days</span>
+          <span className="text-text-secondary">vs last 30 days</span>
         </div>
       )}
     </div>

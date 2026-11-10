@@ -206,7 +206,7 @@ export const ReportAnalyzer: React.FC = () => {
                 </button>
             </div>
 
-            <article ref={contentRef} className="bg-pearl-white text-kampala-obsidian rounded-xl overflow-hidden shadow-2xl">
+            <article ref={contentRef} className="bg-pearl-white text-kampala-obsidian rounded-xl overflow-hidden shadow-2xl report-justified">
               <header className="bg-kampala-obsidian text-pearl-white p-8 border-b-4 border-intel-blue relative">
                 <div className="flex items-center gap-2 mb-4 text-intel-blue text-[9px] font-black uppercase tracking-widest">
                   <Shield size={12} />
@@ -215,7 +215,7 @@ export const ReportAnalyzer: React.FC = () => {
                 <h1 className="text-2xl font-black tracking-tighter uppercase leading-none mb-4">{report.title}</h1>
                 <div className="p-4 bg-white/5 border border-white/10 rounded">
                    <p className="text-xs text-infra-steel font-mono uppercase mb-1">Executive Summary</p>
-                   <p className="text-sm font-medium leading-relaxed">{report.executiveSummary}</p>
+                   <p className="text-sm font-medium leading-relaxed text-justify">{report.executiveSummary}</p>
                 </div>
               </header>
 
@@ -225,14 +225,14 @@ export const ReportAnalyzer: React.FC = () => {
                     <Scroll size={14} className="text-intel-blue" />
                     Strategic Synthesis
                   </h3>
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium text-justify">
                     {report.strategicSynthesis}
                   </div>
                 </section>
 
                 <section className="bg-nile-slate/5 p-6 rounded-lg border border-nile-slate/10 italic">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-intel-blue mb-2">Operational Verdict</h3>
-                  <p className="text-sm font-bold">"{report.conclusion}"</p>
+                  <p className="text-sm font-bold text-justify">"{report.conclusion}"</p>
                 </section>
 
                 {/* Council Voices - Redesigned as vertical feed */}
@@ -245,7 +245,7 @@ export const ReportAnalyzer: React.FC = () => {
                           <div className="w-1.5 h-1.5 rounded-full bg-intel-blue" />
                           <span className="text-[10px] font-black uppercase tracking-tighter">{voice.strategist}</span>
                         </div>
-                        <p className="text-xs italic text-nile-slate mb-2 leading-relaxed">"{voice.quote}"</p>
+                        <p className="text-xs italic text-nile-slate mb-2 leading-relaxed text-justify">"{voice.quote}"</p>
                         <div className="text-[9px] text-infra-steel uppercase font-mono">APP: {voice.application}</div>
                       </div>
                     ))}

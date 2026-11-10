@@ -8,15 +8,11 @@ import {
   Shield, 
   MapPin, 
   Activity, 
-  Lock, 
-  Unlock, 
   Zap, 
   Anchor, 
   Plane, 
   HardDrive,
-  Filter,
   Search,
-  Eye,
   Plus,
   Trash2,
   X,
@@ -27,10 +23,6 @@ import {
   EyeOff,
   Download,
   BrainCircuit,
-  Sparkles,
-  Cpu,
-  Globe,
-  FileText,
   RefreshCw
 } from 'lucide-react';
 import { StrategicAsset, Incident, PEPProfile } from '../types';
@@ -155,8 +147,7 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
           throw new Error(`Record at index ${idx} ('${item.name}') is missing a valid 'location'.`);
         }
         
-        // Coordinates validation
-        let coords: [number, number] = [0.3476, 32.5825]; // default Kampala
+        let coords: [number, number] = [0.3476, 32.5825];
         if (Array.isArray(item.coordinates) && item.coordinates.length === 2) {
           const lat = parseFloat(item.coordinates[0]);
           const lng = parseFloat(item.coordinates[1]);
@@ -171,7 +162,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
           }
         }
         
-        // Type validation
         const allowedTypes = ['Airbase', 'Port', 'Data Center', 'Mine', 'Oil Refined', 'Power Plant', 'Border Post'];
         let assetType: any = item.type || 'Data Center';
         if (!allowedTypes.includes(assetType)) {
@@ -183,7 +173,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
           else assetType = 'Data Center';
         }
         
-        // Status validation
         const allowedStatuses = ['Operational', 'Secured', 'Under Observation', 'Compromised'];
         let status = item.status || 'Operational';
         if (!allowedStatuses.includes(status)) {
@@ -375,7 +364,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
   const markerGroupRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
-    // Clean up map instance on unmount
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -385,11 +373,9 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
   }, []);
 
   useEffect(() => {
-    // Check if container element exists in DOM
     const mapEl = document.getElementById('assets-leaflet-map');
     if (!mapEl) return;
 
-    // Initialize map if it doesn't exist
     if (!mapInstanceRef.current) {
       const map = L.map('assets-leaflet-map', {
         zoomControl: false,
@@ -420,18 +406,19 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
         if (asset.coordinates && Array.isArray(asset.coordinates) && asset.coordinates.length === 2) {
           const [lat, lng] = asset.coordinates;
           if (!isNaN(lat) && !isNaN(lng)) {
-            let color = '#3182CE'; // intel-blue
-            if (asset.status === 'Operational') color = '#3D6B4F'; // savanna-sage
-            else if (asset.status === 'Secured') color = '#3D6B4F'; // savanna-sage
-            else if (asset.status === 'Under Observation') color = '#C8941E'; // nile-amber
-            else if (asset.status === 'Compromised') color = '#C41E3A'; // brotherhood-crimson
+            // Semantic status colors: Operational = green (#34D399), Under Observation = amber (#F59E0B), Compromised = red (#D90000), Secured/Maintenance = neutral gray (#A1A1AA)
+            let color = '#A1A1AA';
+            if (asset.status === 'Operational') color = '#34D399';
+            else if (asset.status === 'Secured') color = '#A1A1AA';
+            else if (asset.status === 'Under Observation') color = '#F59E0B';
+            else if (asset.status === 'Compromised') color = '#D90000';
 
             const customMarker = L.divIcon({
               className: 'custom-radar-marker',
               html: `
                 <div class="relative flex items-center justify-center w-6 h-6">
-                  <span class="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping" style="background-color: ${color}"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3 border border-white/60 shadow" style="background-color: ${color}"></span>
+                  <span class="absolute inline-flex h-full w-full rounded-full opacity-40 animate-ping" style="background-color: ${color}"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 border border-white/70 shadow" style="background-color: ${color}"></span>
                 </div>
               `,
               iconSize: [24, 24],
@@ -441,12 +428,12 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
             const marker = L.marker([lat, lng], { icon: customMarker });
             
             marker.bindPopup(`
-              <div class="p-2 font-sans text-xs" style="min-width: 140px; background-color: #0b1120; color: #f5f1e8; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1)">
-                <h4 style="margin: 0; color: #D4AF37; font-weight: 900; text-transform: uppercase;">${asset.name}</h4>
-                <p style="margin: 2px 0; color: #7a8699; font-family: monospace; font-size: 9px; text-transform: uppercase;">${asset.type}</p>
-                <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 9px;">
-                  <span style="color: #7a8699;">STATUS:</span>
-                  <span style="color: ${color}; font-weight: bold; text-transform: uppercase;">${asset.status}</span>
+              <div class="p-2.5 font-sans text-xs" style="min-width: 150px; background-color: #141416; color: #F5F5F4; border-radius: 10px; border: 1px solid #2A2A2E">
+                <h4 style="margin: 0; color: #F5F5F4; font-weight: 600;">${asset.name}</h4>
+                <p style="margin: 2px 0; color: #A1A1AA; font-family: monospace; font-size: 10px; text-transform: uppercase;">${asset.type}</p>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #2A2A2E; font-size: 10px;">
+                  <span style="color: #A1A1AA;">STATUS:</span>
+                  <span style="color: ${color}; font-weight: 600; text-transform: uppercase;">${asset.status}</span>
                 </div>
               </div>
             `);
@@ -481,34 +468,35 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
     };
   }, [assets]);
 
+  // Strict semantic status colors: Operational = green, Degraded/Watch = amber, Critical/Compromised = red, Under Maintenance/Secured = neutral gray
   const getStatusColor = (status: StrategicAsset['status']) => {
     switch (status) {
-      case 'Operational': return 'text-savanna-sage bg-savanna-sage/10 border-savanna-sage/20';
-      case 'Secured': return 'text-intel-blue bg-intel-blue/10 border-intel-blue/20';
-      case 'Under Observation': return 'text-nile-amber bg-nile-amber/10 border-nile-amber/20';
-      case 'Compromised': return 'text-brotherhood-crimson bg-brotherhood-crimson/10 border-brotherhood-crimson/20';
-      default: return 'text-crane-grey bg-crane-grey/10 border-crane-grey/20';
+      case 'Operational': return 'text-success bg-success/10 border-success/30';
+      case 'Secured': return 'text-text-secondary bg-bg-elevated border-border-subtle';
+      case 'Under Observation': return 'text-warning bg-warning/10 border-warning/30';
+      case 'Compromised': return 'text-danger bg-danger/10 border-danger/30';
+      default: return 'text-text-secondary bg-bg-elevated border-border-subtle';
     }
   };
 
   const getStatusLabelText = (status: StrategicAsset['status']) => {
     switch (status) {
       case 'Operational': return 'Operational';
-      case 'Secured': return 'Maintenance / Secured';
-      case 'Under Observation': return 'Watch';
-      case 'Compromised': return 'Alert';
+      case 'Secured': return 'Under Maintenance';
+      case 'Under Observation': return 'Degraded';
+      case 'Compromised': return 'Critical';
       default: return status;
     }
   };
 
   const getTypeIcon = (type: StrategicAsset['type']) => {
     switch (type) {
-      case 'Airbase': return <Plane size={18} className="text-crested-gold" />;
-      case 'Port': return <Anchor size={18} className="text-intel-blue" />;
-      case 'Data Center': return <HardDrive size={18} className="text-crested-gold" />;
-      case 'Power Plant': return <Zap size={18} className="text-nile-amber" />;
-      case 'Border Post': return <MapPin size={18} className="text-brotherhood-crimson" />;
-      default: return <Shield size={18} />;
+      case 'Airbase': return <Plane size={18} className="text-accent" />;
+      case 'Port': return <Anchor size={18} className="text-info" />;
+      case 'Data Center': return <HardDrive size={18} className="text-accent" />;
+      case 'Power Plant': return <Zap size={18} className="text-warning" />;
+      case 'Border Post': return <MapPin size={18} className="text-danger" />;
+      default: return <Shield size={18} className="text-text-secondary" />;
     }
   };
 
@@ -546,7 +534,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
   const handleUpdateStatus = async (id: string, status: StrategicAsset['status']) => {
     try {
       await updateAssetStatusInDb(id, status);
-      // Update selected locale state safely
       if (selectedAsset && selectedAsset.id === id) {
         setSelectedAsset({ ...selectedAsset, status });
       }
@@ -584,108 +571,102 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
   return (
     <div className="space-y-6 animate-fade-in relative pb-20">
       {/* 1. Header */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-pearl-africa font-black tracking-tighter text-lg uppercase leading-none">Strategic Asset Ledger</h2>
-          <p className="text-[10px] font-mono text-crane-grey uppercase tracking-widest mt-1">Multi-Domain Infrastructure Grid</p>
+          <h2 className="font-display text-2xl font-bold tracking-tight text-text-primary">Strategic Asset Ledger</h2>
+          <p className="text-xs font-mono text-text-secondary uppercase tracking-wider mt-1">Multi-Domain Infrastructure Grid</p>
         </div>
         <button 
           onClick={() => {
             setShowAddForm(!showAddForm);
             if (window.navigator?.vibrate) window.navigator.vibrate(10);
           }}
-          className="flex items-center gap-2 p-2 bg-crested-gold/15 rounded text-crested-gold hover:bg-crested-gold/30 transition-colors uppercase font-mono text-[9px] font-bold tracking-widest"
+          className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-ink rounded-xl hover:opacity-90 transition-opacity font-semibold text-xs"
           title="Register Asset"
         >
           {showAddForm ? <X size={14} /> : <Plus size={14} />}
-          <span>{showAddForm ? 'Cancel Protocol' : 'Register Node'}</span>
+          <span>{showAddForm ? 'Cancel' : 'Register Node'}</span>
         </button>
       </div>
 
       {/* Strategic Actions Toolbar */}
-      <div className="bg-kampala-obsidian/45 border border-white/5 p-2.5 rounded flex flex-wrap gap-2 items-center justify-between">
+      <div className="bg-bg-surface border border-border-subtle p-3 rounded-2xl flex flex-wrap gap-2 items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          {/* 1. Bulk Import Button */}
           <button
             onClick={() => {
               setShowBulkImport(true);
               if (window.navigator?.vibrate) window.navigator.vibrate(10);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-intel-blue/15 hover:bg-intel-blue/30 border border-intel-blue/20 text-intel-blue rounded-sm text-[9px] font-mono font-black uppercase tracking-wider transition-all"
+            className="flex items-center gap-2 px-3.5 py-2 bg-bg-elevated hover:bg-bg-elevated/80 border border-border-subtle text-text-primary rounded-xl text-xs font-medium transition-colors"
             title="Bulk import assets from JSON string"
           >
-            <Database size={12} />
+            <Database size={14} className="text-text-secondary" />
             <span>Bulk Import (JSON)</span>
           </button>
 
-          {/* 2. Synthesis Mind Briefing */}
           <button
             onClick={() => {
               setShowSynthesisModal(true);
               triggerBriefing();
               if (window.navigator?.vibrate) window.navigator.vibrate(10);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-crested-gold/15 hover:bg-crested-gold/30 border border-crested-gold/20 text-crested-gold rounded-sm text-[9px] font-mono font-black uppercase tracking-wider transition-all animate-pulse"
+            className="flex items-center gap-2 px-3.5 py-2 bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent rounded-xl text-xs font-medium transition-colors"
             title="Generate real-time intelligence summary using Gemini API"
           >
-            <BrainCircuit size={12} />
+            <BrainCircuit size={14} />
             <span>Synthesis Briefing</span>
           </button>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* 3. Export PDF Report */}
           <button
             onClick={handleExportPDF}
             disabled={isExportingPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-pearl-africa hover:text-crested-gold rounded-sm text-[9px] font-mono font-black uppercase tracking-wider transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3.5 py-2 bg-bg-elevated border border-border-subtle text-text-secondary hover:text-text-primary rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
             title="Export asset list as Branded PDF Intelligence Report"
           >
-            <Download size={12} />
-            <span>Export Report (PDF)</span>
+            <Download size={14} />
+            <span>Export PDF</span>
           </button>
 
-          {/* 4. Export CSV */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-pearl-africa hover:text-crested-gold rounded-sm text-[9px] font-mono font-black uppercase tracking-wider transition-all"
+            className="flex items-center gap-2 px-3.5 py-2 bg-bg-elevated border border-border-subtle text-text-secondary hover:text-text-primary rounded-xl text-xs font-medium transition-colors"
             title="Export asset ledger data as CSV file"
           >
-            <Database size={12} />
-            <span>Export Ledger (CSV)</span>
+            <Database size={14} />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
       {/* 1a. Register Asset Collapsible Form */}
       {showAddForm && (
-        <form onSubmit={handleCreateAsset} className="bg-lake-victoria/65 p-6 rounded-sm border border-crested-gold/30 space-y-4 animate-fade-in relative">
-          <div className="absolute top-2 right-2 text-crested-gold/10">
-            <Database size={64} className="rotate-12" />
-          </div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-crested-gold flex items-center gap-2">
-            <PlusCircle size={14} /> NEW INFRASTRUCTURE REGISTRATION PROTOCOL
+        <form onSubmit={handleCreateAsset} className="bg-bg-surface p-6 rounded-2xl border border-border-subtle space-y-4 animate-fade-in">
+          <h3 className="font-display text-sm font-semibold text-text-primary flex items-center gap-2">
+            <PlusCircle size={16} className="text-accent" />
+            <span>New Infrastructure Registration Protocol</span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Asset Node Name</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-text-secondary uppercase">Asset Node Name</label>
               <input 
                 type="text"
                 placeholder="e.g. Karuma Hydro Transmission Tower"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 required
-                className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold"
+                className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Infrastructure Domain</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-text-secondary uppercase">Infrastructure Domain</label>
               <select
                 value={newType}
                 onChange={e => setNewType(e.target.value as any)}
-                className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold"
+                className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent"
               >
                 <option value="Airbase">Airbase / Hangar</option>
                 <option value="Port">Maritime / Inland Port</option>
@@ -696,66 +677,66 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Location / District</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-text-secondary uppercase">Location / District</label>
               <input 
                 type="text"
                 placeholder="e.g. Kiryandongo District, Uganda"
                 value={newLocation}
                 onChange={e => setNewLocation(e.target.value)}
                 required
-                className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold"
+                className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Sovereign State (Country)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-text-secondary uppercase">Sovereign State (Country)</label>
               <input 
                 type="text"
                 value={newCountry}
                 onChange={e => setNewCountry(e.target.value)}
                 required
-                className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold"
+                className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Sector Authority / Owner</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-text-secondary uppercase">Sector Authority / Owner</label>
               <input 
                 type="text"
                 placeholder="e.g. Uganda Electricity Generation Company"
                 value={newOwner}
                 onChange={e => setNewOwner(e.target.value)}
-                className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold"
+                className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Latitude</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono text-text-secondary uppercase">Latitude</label>
                 <input 
                   type="text"
                   value={newLat}
                   onChange={e => setNewLat(e.target.value)}
-                  className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold font-mono"
+                  className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent font-mono"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-crane-grey uppercase tracking-wider">Longitude</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono text-text-secondary uppercase">Longitude</label>
                 <input 
                   type="text"
                   value={newLng}
                   onChange={e => setNewLng(e.target.value)}
-                  className="w-full bg-kampala-obsidian border border-white/5 rounded-sm p-3 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold font-mono"
+                  className="w-full bg-bg-elevated border border-border-subtle rounded-xl p-3 text-sm text-text-primary focus:outline-none focus:border-accent font-mono"
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="bg-crested-gold text-lake-victoria font-black uppercase text-[10px] tracking-widest px-6 py-3 rounded-sm hover:opacity-90 active:scale-95 transition-all text-center w-full"
+              className="bg-accent text-accent-ink font-semibold text-xs px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
             >
               Commit Asset Registry Protocol
             </button>
@@ -764,40 +745,40 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
       )}
 
       {/* 2. Real-time Metrics Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="stacked-precision-card p-4 text-center">
-          <p className="text-[9px] font-black uppercase text-savanna-sage mb-1 tracking-widest">Nominal / Secure</p>
-          <p className="text-xl font-black text-savanna-sage">{assets.length > 0 ? `${metrics.operational}%` : '---'}</p>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-bg-surface border border-border-subtle rounded-2xl p-4 text-center">
+          <p className="text-xs font-mono uppercase text-success mb-1">Operational</p>
+          <p className="font-display text-2xl font-bold text-success tabular-nums">{assets.length > 0 ? `${metrics.operational}%` : '---'}</p>
         </div>
-        <div className="stacked-precision-card p-4 text-center">
-          <p className="text-[9px] font-black uppercase text-nile-amber mb-1 tracking-widest">Maintenance</p>
-          <p className="text-xl font-black text-nile-amber">{assets.length > 0 ? `${metrics.watch}%` : '---'}</p>
+        <div className="bg-bg-surface border border-border-subtle rounded-2xl p-4 text-center">
+          <p className="text-xs font-mono uppercase text-warning mb-1">Degraded</p>
+          <p className="font-display text-2xl font-bold text-warning tabular-nums">{assets.length > 0 ? `${metrics.watch}%` : '---'}</p>
         </div>
-        <div className="stacked-precision-card p-4 text-center">
-          <p className="text-[9px] font-black uppercase text-brotherhood-crimson mb-1 tracking-widest">Alert / Threat</p>
-          <p className="text-xl font-black text-brotherhood-crimson">{assets.length > 0 ? `${metrics.alert}%` : '---'}</p>
+        <div className="bg-bg-surface border border-border-subtle rounded-2xl p-4 text-center">
+          <p className="text-xs font-mono uppercase text-danger mb-1">Critical</p>
+          <p className="font-display text-2xl font-bold text-danger tabular-nums">{assets.length > 0 ? `${metrics.alert}%` : '---'}</p>
         </div>
       </div>
 
       {/* Interactive Tactical Radar Map */}
-      <div className="stacked-precision-card p-1 overflow-hidden relative border border-white/5" style={{ height: '300px' }}>
-        <div id="assets-leaflet-map" className="w-full h-full rounded" style={{ minHeight: '100%', zIndex: 1 }} />
+      <div className="bg-bg-surface rounded-2xl p-1.5 overflow-hidden relative border border-border-subtle" style={{ height: '320px' }}>
+        <div id="assets-leaflet-map" className="w-full h-full rounded-xl" style={{ minHeight: '100%', zIndex: 1 }} />
       </div>
 
       {/* 3. Search & Category Filters */}
-      <div className="space-y-4 pt-1">
+      <div className="bg-bg-surface border border-border-subtle rounded-2xl p-4 space-y-3">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-crane-grey" size={16} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" size={15} />
           <input 
             type="text"
             placeholder="Search Asset Node Name, ID or Location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-lake-victoria/40 border border-white/5 rounded-sm pl-12 pr-4 py-4 text-sm focus:outline-none focus:border-crested-gold placeholder:text-crane-grey font-medium transition-all"
+            className="w-full bg-bg-elevated border border-border-subtle rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent placeholder:text-text-secondary"
           />
         </div>
         
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar py-0.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {['All', 'Airbase', 'Port', 'Data Center', 'Mine', 'Power Plant', 'Border Post'].map(type => (
             <button 
               key={type}
@@ -805,7 +786,11 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                 setFilterType(type);
                 if (window.navigator?.vibrate) window.navigator.vibrate(5);
               }}
-              className={`px-4 py-2 rounded-sm text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${filterType === type ? 'bg-crested-gold text-lake-victoria border-crested-gold font-extrabold' : 'bg-transparent text-crane-grey border-white/5 hover:text-white hover:border-white/20'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                filterType === type
+                  ? 'bg-accent text-accent-ink border-accent font-semibold'
+                  : 'bg-bg-elevated text-text-secondary border-border-subtle hover:text-text-primary'
+              }`}
             >
               {type}
             </button>
@@ -813,193 +798,227 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
         </div>
       </div>
 
-      {/* 4. Asset List Stack */}
-      <div className="space-y-1">
+      {/* 4. Asset List */}
+      <div className="space-y-2.5">
         {assets.length === 0 ? (
-          <div className="py-16 text-center border-2 border-dashed border-white/5 rounded-sm p-8 space-y-4">
-             <Shield size={40} className="mx-auto text-crane-grey opacity-40 animate-pulse" />
-             <div className="space-y-1">
-               <p className="text-xs font-black uppercase tracking-widest text-crane-grey">Asset Ledger is Empty</p>
-               <p className="text-[10px] text-infra-steel">Firestore database is active. Populate node infrastructure registry now.</p>
-             </div>
-             <button 
-               onClick={handleSeedDefaults}
-               className="mt-2 py-2.5 px-6 bg-intel-blue hover:bg-intel-blue/80 text-white font-mono text-[9px] font-black uppercase tracking-widest rounded-sm transition-all"
-             >
-               Initialize Live Default Registry
-             </button>
+          <div className="py-16 text-center bg-bg-surface border border-border-subtle rounded-2xl p-8 space-y-4">
+            <Shield size={36} className="mx-auto text-text-secondary" />
+            <div className="space-y-1">
+              <p className="font-display text-sm font-semibold text-text-primary">Asset Ledger is Empty</p>
+              <p className="text-xs text-text-secondary">Firestore database is active. Populate node infrastructure registry now.</p>
+            </div>
+            <button 
+              onClick={handleSeedDefaults}
+              className="py-2.5 px-5 bg-accent text-accent-ink font-semibold text-xs rounded-xl hover:opacity-90 transition-opacity"
+            >
+              Initialize Live Default Registry
+            </button>
           </div>
         ) : filteredAssets.length === 0 ? (
-          <div className="py-16 text-center opacity-40">
-             <EyeOff size={36} className="mx-auto mb-2 text-crane-grey" />
-             <p className="text-xs font-black uppercase tracking-widest text-crane-grey">No matching nodes located</p>
+          <div className="py-16 text-center bg-bg-surface border border-border-subtle rounded-2xl">
+            <EyeOff size={32} className="mx-auto mb-2 text-text-secondary" />
+            <p className="text-xs font-mono uppercase tracking-wider text-text-secondary">No matching nodes located</p>
           </div>
         ) : (
           filteredAssets.map(asset => (
             <button 
               key={asset.id}
               onClick={() => setSelectedAsset(asset)}
-              className="w-full stacked-precision-card p-5 flex items-center justify-between group active:bg-white/5 transition-all"
+              className="w-full bg-bg-surface hover:bg-bg-elevated/60 border border-border-subtle rounded-2xl p-4 flex items-center justify-between group transition-colors"
             >
-              <div className="flex items-center gap-5">
-                <div className={`w-12 h-12 rounded-sm bg-lake-victoria border border-white/5 flex items-center justify-center shrink-0 ${asset.status === 'Compromised' ? 'bg-brotherhood-crimson/15 border-brotherhood-crimson/50' : 'bg-white/5 border-white/5'}`}>
+              <div className="flex items-center gap-4">
+                <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${
+                  asset.status === 'Compromised'
+                    ? 'bg-danger/10 border-danger/30'
+                    : 'bg-bg-elevated border-border-subtle'
+                }`}>
                   {getTypeIcon(asset.type)}
                 </div>
                 <div className="text-left">
-                  <h4 className="text-[14px] font-black text-pearl-africa leading-none mb-1 group-hover:text-crested-gold uppercase tracking-tight">{asset.name}</h4>
-                  <p className="text-[10px] font-mono text-crane-grey uppercase tracking-widest leading-none">
-                    {asset.id} <span className="opacity-30 px-1">//</span> {asset.country}
+                  <h4 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
+                    {asset.name}
+                  </h4>
+                  <p className="text-xs font-mono text-text-secondary mt-0.5">
+                    {asset.id} · {asset.location} ({asset.country})
                   </p>
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-sm border inline-block ${getStatusColor(asset.status)}`}>
+                <span className={`text-xs font-mono font-medium px-2.5 py-1 rounded-md border inline-block ${getStatusColor(asset.status)}`}>
                   {getStatusLabelText(asset.status)}
                 </span>
-                <p className="text-[9px] font-black text-crane-grey mt-2 uppercase tracking-[0.2em]">{asset.type}</p>
+                <p className="text-[11px] font-mono text-text-secondary mt-1.5 uppercase">{asset.type}</p>
               </div>
             </button>
           ))
         )}
       </div>
 
-      {/* 5. Detail Drawer / Over-Panel with Status Transitioning & Decommissioning */}
-      {selectedAsset && (
-        <div className="fixed inset-0 z-[100] bg-kampala-obsidian overflow-y-auto animate-fade-in relative">
-          <div className="sticky top-0 bg-kampala-obsidian/85 backdrop-blur-md h-16 flex items-center justify-between px-6 border-b border-white/5">
-             <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                <Shield size={14} className="text-crested-gold" />
-                Asset Node Controls
-             </h3>
-             <button 
-              onClick={() => setSelectedAsset(null)} 
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-sm"
-             >
-                <X size={18} />
-             </button>
-          </div>
+      {/* 5. Detail Slide-Over Drawer */}
+      <AnimatePresence>
+        {selectedAsset && (
+          <div className="fixed inset-0 z-[100] flex justify-end bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+              className="w-full max-w-lg bg-bg-surface border-l border-border-subtle h-full overflow-y-auto flex flex-col"
+            >
+              <div className="sticky top-0 bg-bg-surface/95 backdrop-blur-md h-16 flex items-center justify-between px-6 border-b border-border-subtle z-10">
+                <h3 className="font-display text-sm font-semibold text-text-primary flex items-center gap-2">
+                  <Shield size={16} className="text-accent" />
+                  <span>Asset Node Controls</span>
+                </h3>
+                <button 
+                  onClick={() => setSelectedAsset(null)} 
+                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-          <div className="p-6 space-y-8 max-w-lg mx-auto">
-             <div className="space-y-3">
-                <h2 className="text-2xl font-black tracking-tighter uppercase leading-none text-pearl-africa">{selectedAsset.name}</h2>
-                <div className="flex flex-wrap gap-2">
-                   <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-sm border ${getStatusColor(selectedAsset.status)}`}>
+              <div className="p-6 space-y-6 flex-grow">
+                <div className="space-y-3">
+                  <h2 className="font-display text-2xl font-bold tracking-tight text-text-primary">{selectedAsset.name}</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`text-xs font-mono font-medium px-2.5 py-1 rounded-md border ${getStatusColor(selectedAsset.status)}`}>
                       {getStatusLabelText(selectedAsset.status)}
-                   </span>
-                   <span className="text-[10px] font-mono text-infra-steel bg-white/5 border border-white/5 px-3 py-1 rounded-sm uppercase">
+                    </span>
+                    <span className="text-xs font-mono text-text-secondary bg-bg-elevated border border-border-subtle px-2.5 py-1 rounded-md">
                       ID: {selectedAsset.id}
-                   </span>
-                   <span className="text-[10px] font-mono text-infra-steel bg-white/5 border border-white/5 px-3 py-1 rounded-sm uppercase">
+                    </span>
+                    <span className="text-xs font-mono text-text-secondary bg-bg-elevated border border-border-subtle px-2.5 py-1 rounded-md">
                       {selectedAsset.type}
-                   </span>
+                    </span>
+                  </div>
                 </div>
-             </div>
 
-             {/* Tech Specs Grid */}
-             <div className="grid grid-cols-2 gap-4">
-                <div className="stacked-precision-card p-4">
-                   <p className="text-[9px] font-black text-infra-steel uppercase mb-1">Geocentric Location</p>
-                   <p className="text-[11px] font-mono text-Pearl-Africa leading-none">{selectedAsset.coordinates?.[0]?.toFixed(4)}N / {selectedAsset.coordinates?.[1]?.toFixed(4)}E</p>
+                {/* Tech Specs Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-bg-elevated/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[11px] font-mono text-text-secondary uppercase mb-1">Coordinates</p>
+                    <p className="text-xs font-mono text-text-primary tabular-nums">
+                      {selectedAsset.coordinates?.[0]?.toFixed(4)}°N, {selectedAsset.coordinates?.[1]?.toFixed(4)}°E
+                    </p>
+                  </div>
+                  <div className="bg-bg-elevated/60 border border-border-subtle rounded-xl p-4">
+                    <p className="text-[11px] font-mono text-text-secondary uppercase mb-1">Sector Authority</p>
+                    <p className="text-xs font-mono text-text-primary truncate">{selectedAsset.owner}</p>
+                  </div>
                 </div>
-                <div className="stacked-precision-card p-4">
-                   <p className="text-[9px] font-black text-infra-steel uppercase mb-1">Sector Authority</p>
-                   <p className="text-[11px] font-mono text-Pearl-Africa leading-none truncate">{selectedAsset.owner}</p>
+
+                {/* REAL-TIME STATUS SWITCH PROTOCOL */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-text-secondary border-b border-border-subtle pb-2">
+                    Transition Operational Status
+                  </h4>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    Select a state below to trigger immediate telemetry updates in the national security database.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={() => handleUpdateStatus(selectedAsset.id, 'Operational')}
+                      className={`p-3 text-left border flex items-center gap-2.5 transition-colors rounded-xl font-mono text-xs ${
+                        selectedAsset.status === 'Operational'
+                          ? 'bg-success/15 border-success text-success font-semibold'
+                          : 'bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>Operational</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleUpdateStatus(selectedAsset.id, 'Secured')}
+                      className={`p-3 text-left border flex items-center gap-2.5 transition-colors rounded-xl font-mono text-xs ${
+                        selectedAsset.status === 'Secured'
+                          ? 'bg-bg-elevated border-text-secondary text-text-primary font-semibold'
+                          : 'bg-bg-elevated/50 border-border-subtle text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      <Shield size={15} />
+                      <span>Under Maintenance</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleUpdateStatus(selectedAsset.id, 'Under Observation')}
+                      className={`p-3 text-left border flex items-center gap-2.5 transition-colors rounded-xl font-mono text-xs ${
+                        selectedAsset.status === 'Under Observation'
+                          ? 'bg-warning/15 border-warning text-warning font-semibold'
+                          : 'bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      <Activity size={15} />
+                      <span>Degraded / Watch</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleUpdateStatus(selectedAsset.id, 'Compromised')}
+                      className={`p-3 text-left border flex items-center gap-2.5 transition-colors rounded-xl font-mono text-xs ${
+                        selectedAsset.status === 'Compromised'
+                          ? 'bg-danger/15 border-danger text-danger font-semibold'
+                          : 'bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      <AlertOctagon size={15} />
+                      <span>Critical / Alert</span>
+                    </button>
+                  </div>
                 </div>
-             </div>
 
-             {/* REAL-TIME STATUS SWITCH PROTOCOL */}
-             <div className="space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-infra-steel border-b border-white/5 pb-2">
-                 TRANSITION INTENT STATUS
-               </h4>
-               <p className="text-[10px] text-crane-grey leading-relaxed">
-                 Select a state below to trigger immediate telemetry updates in the high-command national security database.
-               </p>
-
-               <div className="grid grid-cols-2 gap-2">
-                 <button
-                   onClick={() => handleUpdateStatus(selectedAsset.id, 'Operational')}
-                   className={`p-3 text-left border flex items-center gap-3 transition-all rounded-sm uppercase font-mono text-[9px] ${selectedAsset.status === 'Operational' ? 'bg-savanna-sage/20 border-savanna-sage text-savanna-sage font-black' : 'bg-transparent border-white/5 text-crane-grey hover:border-white/10'}`}
-                 >
-                   <CheckCircle2 size={14} />
-                   <span>Operational</span>
-                 </button>
-
-                 <button
-                   onClick={() => handleUpdateStatus(selectedAsset.id, 'Secured')}
-                   className={`p-3 text-left border flex items-center gap-3 transition-all rounded-sm uppercase font-mono text-[9px] ${selectedAsset.status === 'Secured' ? 'bg-intel-blue/20 border-intel-blue text-intel-blue font-black' : 'bg-transparent border-white/5 text-crane-grey hover:border-white/10'}`}
-                 >
-                   <Shield size={14} />
-                   <span>Secured / Maintenance</span>
-                 </button>
-
-                 <button
-                   onClick={() => handleUpdateStatus(selectedAsset.id, 'Under Observation')}
-                   className={`p-3 text-left border flex items-center gap-3 transition-all rounded-sm uppercase font-mono text-[9px] ${selectedAsset.status === 'Under Observation' ? 'bg-nile-amber/20 border-nile-amber text-nile-amber font-black' : 'bg-transparent border-white/5 text-crane-grey hover:border-white/10'}`}
-                 >
-                    <Activity size={14} />
-                    <span>Watch / Maintenance</span>
-                 </button>
-
-                 <button
-                   onClick={() => handleUpdateStatus(selectedAsset.id, 'Compromised')}
-                   className={`p-3 text-left border flex items-center gap-3 transition-all rounded-sm uppercase font-mono text-[9px] ${selectedAsset.status === 'Compromised' ? 'bg-brotherhood-crimson/20 border-brotherhood-crimson text-brotherhood-crimson font-black' : 'bg-transparent border-white/5 text-crane-grey hover:border-white/10'}`}
-                 >
-                   <AlertOctagon size={14} />
-                   <span>Alert / Compromised</span>
-                 </button>
-               </div>
-             </div>
-
-             {/* Decommission node */}
-             <div className="pt-8 border-t border-white/5 space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-brotherhood-crimson">
-                 HIGH COMMAND ESCALATION
-               </h4>
-               <button 
-                 onClick={() => handleDeleteAsset(selectedAsset.id)}
-                 className="w-full bg-brotherhood-crimson/15 hover:bg-brotherhood-crimson/30 text-brotherhood-crimson py-3 border border-brotherhood-crimson/30 rounded-sm font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all active:scale-95"
-               >
-                 <Trash2 size={14} />
-                 <span>Decommission Node From Grid</span>
-               </button>
-             </div>
+                {/* Decommission node */}
+                <div className="pt-6 border-t border-border-subtle space-y-3">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-danger">
+                    High Command Escalation
+                  </h4>
+                  <button 
+                    onClick={() => handleDeleteAsset(selectedAsset.id)}
+                    className="w-full bg-danger/10 hover:bg-danger/20 text-danger py-3 border border-danger/30 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Trash2 size={15} />
+                    <span>Decommission Node From Grid</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
       {/* BULK IMPORT MODAL */}
       <AnimatePresence>
         {showBulkImport && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-lg bg-kampala-obsidian border border-white/10 rounded-sm p-6 space-y-4 shadow-2xl relative"
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="w-full max-w-lg bg-bg-surface border border-border-subtle rounded-2xl p-6 space-y-4 shadow-2xl relative"
             >
               <button 
                 onClick={() => setShowBulkImport(false)}
-                className="absolute top-4 right-4 text-crane-grey hover:text-white"
+                className="absolute top-4 right-4 text-text-secondary hover:text-text-primary"
               >
                 <X size={16} />
               </button>
               
               <div className="space-y-1">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-crested-gold flex items-center gap-2">
-                  <Database size={14} />
-                  Bulk Infrastructure Import Protocol
+                <h3 className="font-display text-base font-semibold text-text-primary flex items-center gap-2">
+                  <Database size={16} className="text-accent" />
+                  <span>Bulk Infrastructure Import Protocol</span>
                 </h3>
-                <p className="text-[10px] font-mono text-infra-steel uppercase tracking-wider">
+                <p className="text-xs font-mono text-text-secondary">
                   Paste JSON array payload to upsert infrastructure nodes.
                 </p>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-[9px] text-crane-grey leading-relaxed">
+              <div className="space-y-2">
+                <p className="text-xs text-text-secondary leading-relaxed">
                   Provide an array of assets. Existing nodes matching by Name or ID will be updated; otherwise, new nodes will be registered.
                 </p>
-                <div className="p-2 bg-black/40 border border-white/5 rounded text-[8px] font-mono text-infra-steel select-all">
-                  Example format: <br/>
+                <div className="p-3 bg-bg-elevated border border-border-subtle rounded-xl text-[11px] font-mono text-text-secondary select-all">
                   {"[\n  {\n    \"name\": \"Karuma Transmission Substation\",\n    \"type\": \"Power Plant\",\n    \"location\": \"Kiryandongo District\",\n    \"status\": \"Operational\",\n    \"coordinates\": [2.2415, 32.2411],\n    \"country\": \"Uganda\",\n    \"owner\": \"UETCL\"\n  }\n]"}
                 </div>
               </div>
@@ -1011,31 +1030,31 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                   setImportError('');
                 }}
                 placeholder="Paste your JSON payload array here..."
-                className="w-full h-44 bg-lake-victoria/80 border border-white/15 rounded-sm p-4 font-mono text-[10px] text-pearl-africa focus:outline-none focus:border-crested-gold resize-none"
+                className="w-full h-44 bg-bg-elevated border border-border-subtle rounded-xl p-4 font-mono text-xs text-text-primary focus:outline-none focus:border-accent resize-none"
               />
 
               {importStatus && (
-                <p className="text-[10px] font-mono text-crested-gold animate-pulse">{importStatus}</p>
+                <p className="text-xs font-mono text-accent">{importStatus}</p>
               )}
 
               {importError && (
-                <div className="p-3 bg-brotherhood-crimson/15 border border-brotherhood-crimson/20 rounded-sm">
-                  <p className="text-[9px] font-mono text-brotherhood-crimson leading-tight uppercase font-black">IMPORT INTERFERENCE DETECTED:</p>
-                  <p className="text-[9px] font-mono text-brotherhood-crimson/80 leading-relaxed mt-1">{importError}</p>
+                <div className="p-3 bg-danger/10 border border-danger/30 rounded-xl">
+                  <p className="text-xs font-mono text-danger font-semibold">Import Error:</p>
+                  <p className="text-xs font-mono text-danger/90 mt-1">{importError}</p>
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2.5 pt-2">
                 <button
                   onClick={() => setShowBulkImport(false)}
-                  className="px-4 py-2 border border-white/10 text-crane-grey hover:text-white rounded-sm text-[9px] font-mono font-black uppercase tracking-widest transition-colors"
+                  className="px-4 py-2 border border-border-subtle text-text-secondary hover:text-text-primary rounded-xl text-xs font-medium transition-colors"
                 >
-                  Abstain
+                  Cancel
                 </button>
                 <button
                   onClick={handleBulkImport}
                   disabled={!bulkJson.trim() || !!importStatus}
-                  className="px-5 py-2 bg-crested-gold text-lake-victoria hover:opacity-90 active:scale-95 text-[9px] font-mono font-black uppercase tracking-widest rounded-sm transition-all disabled:opacity-30"
+                  className="px-5 py-2 bg-accent text-accent-ink hover:opacity-90 text-xs font-semibold rounded-xl transition-opacity disabled:opacity-30"
                 >
                   Execute Import Protocol
                 </button>
@@ -1048,37 +1067,37 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
       {/* SYNTHESIS MIND BRIEFING MODAL */}
       <AnimatePresence>
         {showSynthesisModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-2xl bg-kampala-obsidian border border-white/10 rounded-sm p-6 space-y-6 shadow-2xl relative my-8"
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="w-full max-w-2xl bg-bg-surface border border-border-subtle rounded-2xl p-6 space-y-6 shadow-2xl relative my-8"
             >
               <button 
                 onClick={() => setShowSynthesisModal(false)}
-                className="absolute top-4 right-4 text-crane-grey hover:text-white z-20 p-1.5 hover:bg-white/5 rounded-sm"
+                className="absolute top-4 right-4 text-text-secondary hover:text-text-primary z-20 p-1.5 hover:bg-bg-elevated rounded-lg"
               >
                 <X size={18} />
               </button>
 
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-4">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-crested-gold flex items-center gap-2">
-                    <BrainCircuit size={16} className="text-crested-gold animate-pulse" />
-                    Synthesis Mind Briefing
+                  <h3 className="font-display text-base font-semibold text-text-primary flex items-center gap-2">
+                    <BrainCircuit size={18} className="text-accent" />
+                    <span>Synthesis Mind Briefing</span>
                   </h3>
-                  <p className="text-[9px] font-mono text-infra-steel uppercase tracking-[0.3em] mt-1">
-                    Cognitive Strategic Intelligence Matrix
+                  <p className="text-xs font-mono text-text-secondary mt-0.5">
+                    Cognitive Strategic Infrastructure Matrix
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-sm border border-white/5 mr-8">
+                <div className="flex items-center gap-1 bg-bg-elevated p-1 rounded-lg border border-border-subtle mr-8">
                   <button 
                     onClick={() => {
                       setIsDeepMode(false);
                       setBriefing(null);
                     }}
-                    className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm transition-all ${!isDeepMode ? 'bg-intel-blue text-white' : 'text-crane-grey'}`}
+                    className={`text-xs font-mono px-2.5 py-1 rounded-md transition-colors ${!isDeepMode ? 'bg-bg-surface text-text-primary font-medium' : 'text-text-secondary'}`}
                   >
                     Tactical
                   </button>
@@ -1087,7 +1106,7 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                       setIsDeepMode(true);
                       setBriefing(null);
                     }}
-                    className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm transition-all ${isDeepMode ? 'bg-purple-600 text-white' : 'text-crane-grey'}`}
+                    className={`text-xs font-mono px-2.5 py-1 rounded-md transition-colors ${isDeepMode ? 'bg-accent text-accent-ink font-semibold' : 'text-text-secondary'}`}
                   >
                     Deep Search
                   </button>
@@ -1095,38 +1114,35 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
               </div>
 
               {briefingLoading ? (
-                <div className="py-20 text-center flex flex-col items-center justify-center gap-4">
+                <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
                   <div className="relative">
-                    <div className="w-16 h-16 border-2 border-crested-gold border-t-transparent rounded-full animate-spin" />
-                    <BrainCircuit className="absolute inset-0 m-auto text-crested-gold animate-pulse" size={24} />
+                    <div className="w-12 h-12 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    <BrainCircuit className="absolute inset-0 m-auto text-accent" size={20} />
                   </div>
-                  <div className="space-y-1">
-                    <p className="font-mono text-[9px] text-crested-gold uppercase tracking-[0.2em] animate-pulse">Running Cognitive Friction Synthesis...</p>
-                    <p className="text-[8px] text-crane-grey uppercase font-mono">Synthesizing Asset Integrity and Incident Logs</p>
-                  </div>
+                  <p className="font-mono text-xs text-text-secondary uppercase tracking-wider">Synthesizing Asset Integrity & Incident Logs...</p>
                 </div>
               ) : briefing ? (
-                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="bg-lake-victoria/40 border border-white/5 p-4 rounded-sm">
-                    <span className="text-[8px] font-mono font-black text-crested-gold uppercase tracking-widest bg-crested-gold/10 px-2 py-0.5 rounded-sm inline-block mb-3">
-                      SFC OVERSIGHT BRIEFING DECREE
+                <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-2 report-justified">
+                  <div className="bg-bg-elevated/60 border border-border-subtle p-4 rounded-xl">
+                    <span className="text-[11px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-md inline-block mb-2">
+                      SFC OVERSIGHT BRIEFING
                     </span>
-                    <h4 className="text-md font-black text-pearl-africa uppercase tracking-tight leading-snug">
+                    <h4 className="font-display text-base font-bold text-text-primary">
                       {briefing.title || 'Dynamic Multi-Domain Security Brief'}
                     </h4>
-                    <p className="text-[11px] text-pearl-africa/90 font-serif leading-relaxed italic border-l border-crested-gold/30 pl-4 py-1 mt-3">
+                    <p className="text-sm text-text-primary/90 leading-relaxed border-l-2 border-accent pl-4 py-1 mt-2 text-justify">
                       "{briefing.threatAssessment}"
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <span className="text-[9px] font-black uppercase text-brotherhood-crimson tracking-widest flex items-center gap-1.5">
-                        <AlertOctagon size={12} /> Escalatory / Kinetic Hotspots
+                      <span className="text-xs font-mono uppercase text-danger flex items-center gap-1.5">
+                        <AlertOctagon size={13} /> Kinetic Hotspots
                       </span>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {briefing.kineticHotspots?.map((hotspot: string, i: number) => (
-                          <div key={i} className="p-2.5 bg-black/25 border border-white/5 rounded-sm text-[10px] text-crane-grey leading-relaxed">
+                          <div key={i} className="p-3 bg-bg-elevated border border-border-subtle rounded-xl text-xs text-text-primary leading-relaxed text-justify">
                             {hotspot}
                           </div>
                         ))}
@@ -1134,12 +1150,12 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-[9px] font-black uppercase text-nile-amber tracking-widest flex items-center gap-1.5">
-                        <Activity size={12} className="text-nile-amber" /> Asset Vulnerabilities
+                      <span className="text-xs font-mono uppercase text-warning flex items-center gap-1.5">
+                        <Activity size={13} className="text-warning" /> Asset Vulnerabilities
                       </span>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {briefing.infrastructureVulnerabilities?.map((vuln: string, i: number) => (
-                          <div key={i} className="p-2.5 bg-black/25 border border-white/5 rounded-sm text-[10px] text-crane-grey leading-relaxed">
+                          <div key={i} className="p-3 bg-bg-elevated border border-border-subtle rounded-xl text-xs text-text-primary leading-relaxed text-justify">
                             {vuln}
                           </div>
                         ))}
@@ -1147,45 +1163,40 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-white/5">
-                    <span className="text-[9px] font-black uppercase text-savanna-sage tracking-widest flex items-center gap-1.5">
-                      <Shield size={12} className="text-savanna-sage" /> Command Directives & Maneuvers
+                  <div className="space-y-2 pt-2 border-t border-border-subtle">
+                    <span className="text-xs font-mono uppercase text-success flex items-center gap-1.5">
+                      <Shield size={13} className="text-success" /> Command Directives
                     </span>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {briefing.strategicRecoms?.map((recom: string, i: number) => (
-                        <div key={i} className="p-3 bg-white/5 border-l-2 border-l-savanna-sage rounded-sm text-[10px] text-pearl-africa leading-snug">
+                        <div key={i} className="p-3 bg-bg-elevated border-l-2 border-l-success rounded-xl text-xs text-text-primary leading-relaxed text-justify">
                           {recom}
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  <div className="p-4 bg-black/55 border border-white/5 rounded-sm flex items-center justify-between">
-                    <span className="text-[8px] font-mono text-infra-steel uppercase">PRESIDENTIAL VERDICT BRIEF:</span>
-                    <span className="text-[10px] font-bold text-crested-gold italic">"{briefing.summary}"</span>
-                  </div>
                 </div>
               ) : (
-                <div className="py-16 text-center opacity-35 flex flex-col items-center justify-center gap-2">
-                  <Database size={32} />
-                  <p className="text-[9px] font-black uppercase tracking-widest">Inquiry failed. No data compiled.</p>
+                <div className="py-16 text-center text-text-secondary flex flex-col items-center justify-center gap-2">
+                  <Database size={28} />
+                  <p className="text-xs font-mono uppercase">Inquiry failed. No data compiled.</p>
                 </div>
               )}
 
-              <div className="flex justify-between items-center border-t border-white/5 pt-4">
+              <div className="flex justify-between items-center border-t border-border-subtle pt-4">
                 <button
                   onClick={triggerBriefing}
                   disabled={briefingLoading}
-                  className="flex items-center gap-1 px-3 py-1.5 border border-white/10 hover:border-crested-gold/30 rounded-sm text-[9px] font-mono font-black uppercase tracking-wider text-crane-grey hover:text-crested-gold transition-all"
+                  className="flex items-center gap-1.5 px-3.5 py-2 border border-border-subtle rounded-xl text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
                 >
-                  <RefreshCw size={11} className={briefingLoading ? 'animate-spin' : ''} />
-                  <span>Synchronize Intelligence</span>
+                  <RefreshCw size={13} className={briefingLoading ? 'animate-spin' : ''} />
+                  <span>Synchronize</span>
                 </button>
                 <button
                   onClick={() => setShowSynthesisModal(false)}
-                  className="px-5 py-1.5 bg-crested-gold text-lake-victoria hover:opacity-95 text-[9px] font-mono font-black uppercase tracking-widest rounded-sm transition-colors"
+                  className="px-5 py-2 bg-accent text-accent-ink hover:opacity-90 text-xs font-semibold rounded-xl transition-opacity"
                 >
-                  Dismiss Report
+                  Close
                 </button>
               </div>
             </motion.div>
@@ -1206,31 +1217,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
               <p>COMPILED ON: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()} UTC</p>
               <p>COMPILER: COMRADE MUGISOLO</p>
               <p>TARGET ACCESS: DIRECTOR OF STRATEGIC OVERSIGHT</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-slate-50 p-4 border border-slate-100 rounded text-center">
-              <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total Node Count</p>
-              <p className="text-xl font-black text-slate-800">{assets.length}</p>
-            </div>
-            <div className="bg-slate-50 p-4 border border-slate-100 rounded text-center">
-              <p className="text-[9px] font-black uppercase text-emerald-600 tracking-wider">Nominal / Secure</p>
-              <p className="text-xl font-black text-emerald-700">
-                {assets.filter(a => a.status === 'Operational' || a.status === 'Secured').length}
-              </p>
-            </div>
-            <div className="bg-slate-50 p-4 border border-slate-100 rounded text-center">
-              <p className="text-[9px] font-black uppercase text-amber-500 tracking-wider">Under Observation</p>
-              <p className="text-xl font-black text-amber-600">
-                {assets.filter(a => a.status === 'Under Observation').length}
-              </p>
-            </div>
-            <div className="bg-slate-50 p-4 border border-slate-100 rounded text-center">
-              <p className="text-[9px] font-black uppercase text-rose-600 tracking-wider">Compromised / Alert</p>
-              <p className="text-xl font-black text-rose-700">
-                {assets.filter(a => a.status === 'Compromised').length}
-              </p>
             </div>
           </div>
 
@@ -1257,11 +1243,7 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
                   </td>
                   <td className="p-3 text-slate-500 truncate max-w-[150px]">{asset.owner}</td>
                   <td className="p-3">
-                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                      asset.status === 'Operational' || asset.status === 'Secured' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' :
-                      asset.status === 'Under Observation' ? 'text-amber-700 bg-amber-50 border border-amber-200' :
-                      'text-rose-700 bg-rose-50 border border-rose-200'
-                    }`}>
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
                       {asset.status}
                     </span>
                   </td>
@@ -1269,18 +1251,6 @@ export const StrategicAssetsMap: React.FC<StrategicAssetsProps> = ({
               ))}
             </tbody>
           </table>
-
-          <div className="border-t border-slate-200 pt-6 mt-12 flex justify-between items-start">
-            <div className="space-y-1 text-[9px] text-slate-400 uppercase font-mono">
-              <p>SYSTEM SECURITY CHECKSUM: {Math.random().toString(36).substring(7).toUpperCase()}</p>
-              <p>DECREE CLASSIFICATION: CLASS-A INTEL-GRADE</p>
-              <p>VERIFIED DOMAIN SURVEILLANCE NODE PROXIES ACTIVE</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-serif italic text-slate-500 font-bold">Comrade Mugisolo</p>
-              <p className="text-[8px] font-mono text-slate-400 uppercase mt-1">DIRECTOR OF STRATEGIC OVERSIGHT // SIGN-OFF</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

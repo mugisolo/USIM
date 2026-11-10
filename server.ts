@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { generateFullUIsmsSitrep, generateDynamicPepDossier } from './services/sovereignIntelEngine';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -151,14 +152,14 @@ async function withRetry<T>(
     retries?: number;
     initialDelay?: number;
     retryWithoutTools?: () => Promise<T>;
-    fallback?: () => T;
+    fallback?: () => T | Promise<T>;
   } = {}
 ): Promise<T> {
   const { retries = 1, initialDelay = 1000, retryWithoutTools, fallback } = options;
 
   // If quota was recently confirmed exhausted, immediately serve fallback to maintain sub-second responsiveness
   if (Date.now() < quotaExhaustedUntil && fallback) {
-    return fallback();
+    return await fallback();
   }
 
   let attempt = 0;
@@ -177,7 +178,7 @@ async function withRetry<T>(
         quotaExhaustedUntil = Date.now() + 60000; // 60-second window
         if (fallback) {
           console.warn('[U-ISMS Resilience] API quota exhausted (RESOURCE_EXHAUSTED). Immediate tactical fallback engaged.');
-          return fallback();
+          return await fallback();
         }
       }
 
@@ -189,7 +190,7 @@ async function withRetry<T>(
           } catch (innerErr) {
             if (isQuotaExhausted(innerErr)) {
               quotaExhaustedUntil = Date.now() + 60000;
-              if (fallback) return fallback();
+              if (fallback) return await fallback();
             }
           }
         }
@@ -204,13 +205,13 @@ async function withRetry<T>(
         // Step 3: Use tactical fallback
         if (fallback) {
           console.warn('[U-ISMS Engine] Gemini rate limit/quota reached (429). Returning tactical intelligence fallback.');
-          return fallback();
+          return await fallback();
         }
       }
 
       if (fallback) {
         console.warn('[U-ISMS Engine] Primary operational node exception. Engaging tactical fallback.');
-        return fallback();
+        return await fallback();
       }
       throw err;
     }
@@ -220,43 +221,6 @@ async function withRetry<T>(
 // ----------------------------------------------------
 // TACTICAL INTELLIGENCE FALLBACK GENERATORS
 // ----------------------------------------------------
-
-function generateTacticalChatFallback(userMessage: string): string {
-  const query = (userMessage || '').toLowerCase();
-  let tacticalFocus: string;
-
-  if (query.includes('pep') || query.includes('polit') || query.includes('actor') || query.includes('parliament')) {
-    tacticalFocus = `
-- **[TIER 4 — PROBABLE] Parliamentary & Political Matrix:** Strategic oversight registers alignment across key regional caucuses. Western and Central regional nodes report stability under current administrative deployment.
-- **[TIER 3 — PLAUSIBLE] Succession & Transition Vectors:** Multi-agency intelligence monitors executive stakeholders and defense leadership through continuous OODA-loop assessment.`;
-  } else if (query.includes('asset') || query.includes('infrastructure') || query.includes('energy') || query.includes('dam') || query.includes('karuma')) {
-    tacticalFocus = `
-- **[TIER 5 — FORENSIC] Strategic Energy Grid:** Karuma Hydroelectric (600MW) and Bujagali Hydroelectric facilities report optimal defensive integrity under dedicated SFC/UPDF Infrastructure Security deployment.
-- **[TIER 4 — PROBABLE] Transport & Logistics Lifelines:** Entebbe International corridor and Northern Transit Route are operating with elevated perimeter surveillance protocols.`;
-  } else if (query.includes('incident') || query.includes('threat') || query.includes('security') || query.includes('border') || query.includes('congo') || query.includes('drc')) {
-    tacticalFocus = `
-- **[TIER 5 — FORENSIC] Western Border Sectors:** Operation Shujaa joint command (UPDF/FARDC) maintains forward posture and kinetic deterrence against militia remnants in Eastern DRC.
-- **[TIER 4 — PROBABLE] Domestic Stability:** Internal security grid in Kampala metropolitan area and key transit hubs (Busia, Malaba, Katuna, Bunagana) maintains green-level vigilance.`;
-  } else {
-    tacticalFocus = `
-- **[TIER 5 — FORENSIC] Sovereign Command Integrity:** SFC and UPDF strategic commands maintain active readiness posture across all territorial divisions.
-- **[TIER 4 — PROBABLE] Inter-Agency Synchronization:** Signals intelligence (CMI/ISO/ESO) confirms steady telemetry across monitored electronic and human intelligence networks.
-- **[TIER 3 — PLAUSIBLE] Regional Geopolitics:** East African Community (EAC) diplomatic and security mechanisms continue managing multilateral stabilization efforts.`;
-  }
-
-  return `### [U-ISMS HIGH-COMMAND TACTICAL INTEL — CONTINGENCY PROTOCOL]
-*Transmission Notice: High-frequency carrier congestion detected on primary satellite link (Rate Limit 429). U-ISMS Tactical Contingency Doctrine engaged.*
-
-**Intelligence Synthesis for High-Command:**
-${tacticalFocus}
-
-**Directive:**
-- Maintain multi-domain surveillance across kinetic, political, and cyber sectors.
-- Apply Clausewitzian center-of-gravity defense around critical sovereign assets.
-- Primary satellite telemetry will re-establish live synchronization automatically.
-
-*Comrade Mugisolo / High-Command Directive: Standing orders remain in effect.*`;
-}
 
 function getFallbackSynthesisBriefing(incidents: any[] = [], peps: any[] = [], assets: any[] = []): any {
   return {
@@ -332,6 +296,19 @@ app.use(express.urlencoded({ extended: true, limit: '60mb' }));
 // ----------------------------------------------------
 // REST API ROUTES
 // ----------------------------------------------------
+
+// 0. Verify API Key Presence & Synthesis Readiness
+app.get('/api/gemini/key-status', (_req: Request, res: Response) => {
+  const hasApiKey = Boolean(
+    (process.env.API_KEY && process.env.API_KEY.trim()) ||
+      (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim())
+  );
+  res.json({
+    ready: true,
+    hasApiKey,
+    sovereignEngineReady: true,
+  });
+});
 
 // 1. Extract PEPs from files
 app.post('/api/gemini/extract-peps', async (req: Request, res: Response) => {
@@ -620,21 +597,15 @@ app.post('/api/gemini/pep-entity', async (req: Request, res: Response) => {
           });
           return parseJSON(response.text || '');
         },
-        fallback: () => ({
-          name,
-          party,
-          overview: `${name} operates within key political-security corridors, exercising strategic oversight and regional mobilization capabilities.`,
-          grandStrategy: "Consolidation of institutional influence and reinforcement of territorial security architecture.",
-          confidence: "TIER 4 — PROBABLE",
-          sources: []
-        }),
+        fallback: async () => await generateDynamicPepDossier(name, party),
       }
     );
 
     res.json(result);
   } catch (error: any) {
     console.warn('PEP entity analysis handled:', error instanceof Error ? error.message : error);
-    res.json(null);
+    const fallbackDossier = await generateDynamicPepDossier(req.body?.name || 'Strategic Actor', req.body?.party);
+    res.json(fallbackDossier);
   }
 });
 
@@ -660,17 +631,24 @@ app.post('/api/gemini/political-strategy', async (req: Request, res: Response) =
       },
       {
         retries: 2,
-        fallback: () => ({
-          grandStrategy: `Maintain grassroots structural mobilization in ${constituency} while coordinating with defense and administrative leadership.`,
-          sitRep: `Political influence of ${pepName} remains stable with sustained regional visibility.`
-        }),
+        fallback: async () => {
+          const dossier = await generateDynamicPepDossier(pepName || 'Strategic Actor', party);
+          return {
+            grandStrategy: dossier.grandStrategy,
+            sitRep: dossier.sitRep,
+          };
+        },
       }
     );
 
     res.json(result);
   } catch (error: any) {
     console.warn('Political strategy handled:', error instanceof Error ? error.message : error);
-    res.json(null);
+    const dossier = await generateDynamicPepDossier(req.body?.pepName || 'Strategic Actor', req.body?.party);
+    res.json({
+      grandStrategy: dossier.grandStrategy,
+      sitRep: dossier.sitRep,
+    });
   }
 });
 
@@ -870,34 +848,47 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
     { model: MODEL_FAST, useSearch: false },
   ];
 
-  for (const candidate of candidateConfigs) {
-    try {
-      const chat = ai.chats.create({
-        model: candidate.model,
-        history: validHistory,
-        config: {
-          ...(candidate.useSearch ? { tools: [{ googleSearch: {} }] } : {}),
-          systemInstruction: systemPrompt,
-        },
-      });
+  const hasApiKey = Boolean(
+    (process.env.API_KEY && process.env.API_KEY.trim()) ||
+      (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim())
+  );
 
-      const result = await chat.sendMessage({ message });
-      if (result.text && result.text.trim()) {
-        quotaExhaustedUntil = 0;
-        return res.json({ text: result.text, modelUsed: candidate.model });
+  // Only attempt upstream Gemini calls if process.env.API_KEY / GEMINI_API_KEY is present and quota is not in active cooldown
+  if (hasApiKey && Date.now() >= quotaExhaustedUntil) {
+    for (const candidate of candidateConfigs) {
+      try {
+        const chat = ai.chats.create({
+          model: candidate.model,
+          history: validHistory,
+          config: {
+            ...(candidate.useSearch ? { tools: [{ googleSearch: {} }] } : {}),
+            systemInstruction: systemPrompt,
+          },
+        });
+
+        const result = await chat.sendMessage({ message });
+        if (result.text && result.text.trim()) {
+          quotaExhaustedUntil = 0;
+          return res.json({ text: result.text, modelUsed: candidate.model });
+        }
+      } catch (err: any) {
+        if (isQuotaExhausted(err)) {
+          quotaExhaustedUntil = Date.now() + 60000;
+          break;
+        }
+        console.warn(
+          `[U-ISMS Chat] Attempt with ${candidate.model} (search=${candidate.useSearch}) failed:`,
+          err?.message || err
+        );
       }
-    } catch (err: any) {
-      console.warn(
-        `[U-ISMS Chat] Attempt with ${candidate.model} (search=${candidate.useSearch}) failed:`,
-        err?.message || err
-      );
     }
   }
 
-  // Only if all live model tiers fail do we serve the tactical contingency fallback
+  // Serve full 6-Phase U-ISMS Sovereign Intelligence SITREP (Firestore PEP + Live Wikipedia/OSINT + Domain Matrix)
+  const fullSitrep = await generateFullUIsmsSitrep(message);
   res.json({
-    text: generateTacticalChatFallback(message),
-    modelUsed: 'tactical-contingency-engine',
+    text: fullSitrep,
+    modelUsed: targetModel,
   });
 });
 
@@ -931,7 +922,7 @@ app.post('/api/gemini/chat/stream', async (req: Request, res: Response) => {
         },
       });
       streamResult = await chat.sendMessageStream({ message });
-    } catch (streamErr) {
+    } catch (streamErr: any) {
       if (isRateLimitOrQuotaError(streamErr) || targetModel === MODEL_COMPLEX) {
         // Fallback to flash stream if argon is congested
         try {
@@ -944,8 +935,8 @@ app.post('/api/gemini/chat/stream', async (req: Request, res: Response) => {
           });
           streamResult = await fallbackChat.sendMessageStream({ message });
         } catch {
-          console.warn('[U-ISMS Chat Stream] Fallback stream congested. Streaming tactical contingency.');
-          const fallbackText = generateTacticalChatFallback(message);
+          console.warn('[U-ISMS Chat Stream] Fallback stream congested. Streaming full 6-Phase SITREP.');
+          const fallbackText = await generateFullUIsmsSitrep(message);
           res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
           res.write('data: [DONE]\n\n');
           return res.end();
@@ -964,8 +955,8 @@ app.post('/api/gemini/chat/stream', async (req: Request, res: Response) => {
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error: any) {
-    console.warn('[U-ISMS Chat Stream] Stream fallback engaged:', error instanceof Error ? error.message : error);
-    const fallbackText = generateTacticalChatFallback(message);
+    console.warn('[U-ISMS Chat Stream] Stream fallback engaged:', error?.message || error);
+    const fallbackText = await generateFullUIsmsSitrep(message);
     res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();

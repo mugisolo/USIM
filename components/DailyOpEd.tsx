@@ -181,11 +181,11 @@ export const DailyOpEd: React.FC<DailyOpEdProps> = ({ incidents, peps }) => {
                 <h4 className="font-sans font-bold text-red-700 text-xs uppercase tracking-widest mb-6 border-b border-red-200 pb-3 flex items-center gap-2">
                     <Shield size={14} /> Key Strategic Verdicts
                 </h4>
-                <div className="space-y-10">
+                <div className="space-y-10 report-justified">
                     {report.keyTakeaways?.map((point, idx) => (
                         <div key={idx} className="group relative">
                             <Quote size={20} className="text-slate-300 mb-2" />
-                            <p className="font-merriweather text-slate-700 text-sm leading-relaxed italic">{point}</p>
+                            <p className="font-merriweather text-slate-700 text-sm leading-relaxed italic text-justify">{point}</p>
                         </div>
                     ))}
                 </div>
@@ -198,7 +198,7 @@ export const DailyOpEd: React.FC<DailyOpEdProps> = ({ incidents, peps }) => {
             </div>
 
             {/* Main Content Area */}
-            <article className="flex-grow p-10 md:p-16 lg:p-24 overflow-y-auto">
+            <article className="flex-grow p-10 md:p-16 lg:p-24 overflow-y-auto report-justified">
                 <div className="max-w-3xl mx-auto">
                     <div className="flex items-center gap-3 text-slate-500 font-sans text-[10px] font-bold tracking-[0.2em] uppercase mb-10">
                         <span className="flex items-center gap-1"><Calendar size={12} /> {isHistorical ? `${startDate} to ${endDate}` : 'LATEST OPS BRIEFING'}</span>
@@ -212,10 +212,10 @@ export const DailyOpEd: React.FC<DailyOpEdProps> = ({ incidents, peps }) => {
 
                     <div 
                         className="prose prose-lg prose-slate font-merriweather text-slate-900 max-w-none 
-                        prose-p:leading-relaxed prose-p:mb-8 prose-p:text-lg
+                        prose-p:leading-relaxed prose-p:mb-8 prose-p:text-lg prose-p:text-justify
                         prose-h2:font-playfair prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:text-slate-950
                         prose-h3:font-playfair prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4
-                        prose-li:text-slate-800 prose-strong:text-slate-950 prose-strong:font-bold"
+                        prose-li:text-slate-800 prose-li:text-justify prose-strong:text-slate-950 prose-strong:font-bold text-justify report-justified"
                         dangerouslySetInnerHTML={{ __html: report.content || "" }}
                     />
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { 
   MessageSquare, 
   Send, 
@@ -14,9 +14,9 @@ import {
   Zap, 
   Cpu, 
   LogIn,
-  CheckCircle2,
   Mic,
-  Square
+  Square,
+  ChevronDown
 } from 'lucide-react';
 import { chatWithAnalyst, transcribeAudio } from '../services/geminiService';
 import { auth, loginWithGoogle } from '../services/authService';
@@ -64,6 +64,121 @@ const QUICK_PROMPTS = [
   }
 ];
 
+const MODEL_META: Record<ModelTier, { label: string; desc: string; icon: React.FC<{ size?: number; className?: string }> }> = {
+  'gemini-4-argon': {
+    label: 'gemini-4-argon',
+    desc: 'Deep Strategic Reasoning',
+    icon: Sparkles,
+  },
+  'gemini-3.8-flash': {
+    label: 'gemini-3.8-flash',
+    desc: 'Balanced Situational Analyst',
+    icon: Cpu,
+  },
+  'gemini-3.1-flash-lite': {
+    label: 'gemini-3.1-flash-lite',
+    desc: 'Rapid Tactical Triage',
+    icon: Zap,
+  },
+};
+
+/**
+ * Cleans and normalizes intelligence report markdown so raw CSS/HTML scrape artifacts
+ * (such as .np-hot-topics or navigation menus) are completely stripped and headings render cleanly.
+ */
+const formatIntelligenceReportText = (raw: string): string => {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleaned = raw
+    // Remove any leaked "[TIER 5 — FIELD PRESS INTERCEPT]: News All News ..." scrape blocks
+    .replace(/\[TIER 5\s*—\s*FIELD PRESS INTERCEPT\]:\s*News All News[\s\S]*?(?=\n\n|\n###|\n\*\*\[TIER|$)/gi, '')
+    // Remove inline CSS rules or @media queries if any leaked into historical messages
+    .replace(/\.[a-zA-Z0-9_-]+\s*\{[^}]*\}/g, '')
+    .replace(/@media[^{]+\{([\s\S]*?\})\s*\}/g, '')
+    .replace(/#[a-zA-Z0-9_-]+\s*\{[^}]*\}/g, '')
+    // Normalize plain-text uppercase section headers from older reports into clean Markdown H3 headers
+    .replace(/^EXECUTIVE INTELLIGENCE SYNTHESIS$/gm, '### Executive Intelligence Synthesis')
+    .replace(/^PHASE (\d+):\s*(.+)$/gm, '### 0$1. $2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return cleaned;
+};
+
+/**
+ * Verifies process.env.API_KEY / server key readiness and executes the Gemini analyst query
+ * with exponential backoff and model-tier retry protection against 429/402 errors.
+ */
+const executeAnalystQueryWithRetry = async (
+  history: any[],
+  query: string,
+  preferredModel: ModelTier,
+  maxRetries: number = 3
+): Promise<string> => {
+  // Verify presence of process.env.API_KEY (client-side define or server-side key status)
+  const hasProcessEnvKey = Boolean(
+    typeof process !== 'undefined' &&
+      process.env &&
+      (process.env.API_KEY || process.env.GEMINI_API_KEY)
+  );
+
+  if (!hasProcessEnvKey) {
+    try {
+      const statusRes = await fetch('/api/gemini/key-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (!statusData.configured && !statusData.sovereignFallbackReady) {
+          console.warn('[U-ISMS] API_KEY not detected in environment; engaging sovereign intelligence engine.');
+        }
+      }
+    } catch {
+      // Proceed to retry loop
+    }
+  }
+
+  const tierFallbackSequence: ModelTier[] =
+    preferredModel === 'gemini-4-argon'
+      ? ['gemini-4-argon', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']
+      : preferredModel === 'gemini-3.8-flash'
+      ? ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']
+      : ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const modelForAttempt = tierFallbackSequence[attempt % tierFallbackSequence.length];
+    try {
+      const responseText = await chatWithAnalyst(history, query, modelForAttempt);
+      const isRateLimitedStub =
+        responseText.includes('Rate Limit 429') ||
+        responseText.includes('CONTINGENCY PROTOCOL') ||
+        responseText.includes('TACTICAL STANDBY');
+
+      if (!isRateLimitedStub && responseText.trim().length > 0) {
+        return formatIntelligenceReportText(responseText);
+      }
+
+      if (attempt < maxRetries - 1) {
+        const backoffMs = 500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      } else {
+        return formatIntelligenceReportText(responseText);
+      }
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries - 1) {
+        const backoffMs = 600 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+
+  if (lastError) {
+    console.warn('Retry wrapper exhausted attempts:', lastError);
+  }
+  const finalFallback = await chatWithAnalyst(history, query, 'gemini-3.8-flash');
+  return formatIntelligenceReportText(finalFallback);
+};
+
 export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
   const [isOpen, setIsOpen] = useState(isInline || false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -72,6 +187,7 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelTier>('gemini-3.8-flash');
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -98,21 +214,22 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
 
   useEffect(() => {
     if (user) {
-      // Subscribe to real-time chat history persisted in Firestore
       const unsubHistory = subscribeToChatHistory(user.uid, (historyMsgs) => {
         if (Array.isArray(historyMsgs) && historyMsgs.length > 0) {
-          const formattedMsgs: ChatMessage[] = historyMsgs.map(m => ({
-            id: m.id,
-            role: m.role as 'user' | 'model',
-            text: typeof m.text === 'string' ? m.text : JSON.stringify(m.text),
-            modelTier: m.modelTier || 'gemini-3.8-flash',
-            timestamp: m.timestamp || new Date().toISOString()
-          }));
+          const formattedMsgs: ChatMessage[] = historyMsgs.map(m => {
+            const rawText = typeof m.text === 'string' ? m.text : JSON.stringify(m.text);
+            return {
+              id: m.id,
+              role: m.role as 'user' | 'model',
+              text: m.role === 'model' ? formatIntelligenceReportText(rawText) : rawText,
+              modelTier: m.modelTier || 'gemini-3.8-flash',
+              timestamp: m.timestamp || new Date().toISOString()
+            };
+          });
           setMessages(formattedMsgs);
         }
       });
 
-      // Subscribe to user metadata for super user status and privileges
       const unsubMeta = subscribeToUserMetadata(user.uid, (meta) => {
         if (meta?.isSuperUser || user.email === 'mugisolo@gmail.com') {
           setIsSuperUser(true);
@@ -236,7 +353,6 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
     const currentMessages = [...messages];
     if (!customMessage) setInput('');
     
-    // Optimistic UI update
     setMessages(prev => [...prev, { 
       role: 'user', 
       text: userMsg, 
@@ -246,14 +362,12 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
     
     setLoading(true);
 
-    // Operational audit logging
     logOperationalAction(
       `Intelligence Query [${selectedModel}]: "${userMsg.length > 60 ? userMsg.substring(0, 57) + '...' : userMsg}"`, 
       'USER_QUERY', 
       isSuperUser ? 'Comrade Mugisolo' : 'LIAISON_01'
     );
 
-    // Save user message to Firestore if authenticated
     if (user) {
       saveChatMessage(user.uid, 'user', userMsg, selectedModel).catch(console.error);
     }
@@ -264,9 +378,8 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
     })) : [];
 
     try {
-      const response = await chatWithAnalyst(history, userMsg, selectedModel);
+      const response = await executeAnalystQueryWithRetry(history, userMsg, selectedModel);
       
-      // Update UI with model response
       setMessages(prev => [...prev, { 
         role: 'model', 
         text: response, 
@@ -274,7 +387,6 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
         timestamp: new Date().toISOString() 
       }]);
       
-      // Save model response to Firestore if authenticated
       if (user) {
         saveChatMessage(user.uid, 'model', response, selectedModel).catch(console.error);
       }
@@ -295,43 +407,46 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] w-14 h-14 bg-crested-gold hover:bg-watch-gold text-lake-victoria rounded-sm shadow-[0_10px_30px_rgba(212,175,55,0.3)] flex items-center justify-center transition-all hover:scale-110 active:scale-95 animate-fade-in"
-        title="Open U-ISMS Strategic Intelligence Chat"
+        className="fixed bottom-6 right-6 z-[60] w-14 h-14 bg-accent hover:opacity-90 text-accent-ink rounded-full shadow-lg flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95"
+        title="Open U-ISMS Strategic Intelligence Assistant"
       >
-        <MessageSquare size={24} />
+        <MessageSquare size={22} />
       </button>
     );
   }
 
+  const ActiveModelIcon = MODEL_META[selectedModel]?.icon || Cpu;
+
   const containerClasses = isInline 
-    ? "h-full w-full flex flex-col overflow-hidden bg-lake-victoria"
-    : `fixed z-[70] bg-lake-victoria border-t md:border border-white/5 md:rounded-xl shadow-2xl flex flex-col transition-all duration-500 overflow-hidden ${isMinimized ? 'bottom-20 right-4 md:bottom-6 md:right-6 w-72 h-14' : 'inset-0 md:inset-auto md:bottom-6 md:right-6 w-full h-full md:w-[500px] md:h-[750px]'}`;
+    ? "h-full w-full flex flex-col overflow-hidden bg-bg-base"
+    : `fixed z-[70] bg-bg-surface border-l border-border-subtle shadow-2xl flex flex-col transition-all duration-200 overflow-hidden ${
+        isMinimized 
+          ? 'bottom-6 right-6 w-80 h-14 rounded-2xl border' 
+          : 'inset-y-0 right-0 w-full sm:w-[460px] h-full'
+      }`;
 
   return (
     <div className={containerClasses}>
-      {/* 1. Chat Header */}
-      <div className="h-16 md:h-14 bg-kampala-obsidian border-b border-white/5 flex items-center justify-between px-4 shrink-0">
+      {/* Slide-over Header (shown when floating or as compact status strip) */}
+      <div className="h-14 px-5 border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-sm bg-crested-gold/10 flex items-center justify-center border border-crested-gold/20 ${loading ? 'animate-pulse' : ''}`}>
-            <BrainCircuit size={18} className="text-crested-gold" />
+          <div className="w-8 h-8 rounded-lg bg-bg-elevated border border-border-subtle flex items-center justify-center text-accent">
+            <BrainCircuit size={17} />
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-white text-[11px] uppercase tracking-[0.2em] leading-none">Intelligence Command</span>
-              {isSuperUser ? (
-                <span className="text-[8px] bg-crested-gold/10 text-crested-gold border border-crested-gold/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
-                  <ShieldCheck size={9} />
-                  MUGISOLO
-                </span>
-              ) : (
-                <span className="text-[8px] bg-savanna-sage/10 text-savanna-sage border border-savanna-sage/20 px-1.5 py-0.5 rounded font-mono font-bold">
-                  ACTIVE
-                </span>
-              )}
-            </div>
-            <span className="text-[9px] text-crane-grey font-mono mt-0.5">
-              Uganda Strategic Intelligence (U-ISMS)
+          <div className="flex items-center gap-2.5">
+            <span className="font-display font-semibold text-sm text-text-primary tracking-tight">
+              Intelligence Command
             </span>
+            {isSuperUser ? (
+              <span className="text-[11px] font-mono text-text-secondary flex items-center gap-1">
+                <ShieldCheck size={12} className="text-accent" />
+                <span>Mugisolo</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono text-text-secondary">
+                Active
+              </span>
+            )}
           </div>
         </div>
 
@@ -339,226 +454,253 @@ export const Chatbot: React.FC<{ isInline?: boolean }> = ({ isInline }) => {
           {user ? (
             <button 
               onClick={handleClearHistory} 
-              className="p-1.5 text-crane-grey hover:text-brotherhood-crimson transition-colors rounded hover:bg-white/5"
-              title="Clear conversation"
+              className="px-2.5 py-1.5 text-xs text-text-secondary hover:text-danger transition-colors duration-150 rounded-lg hover:bg-bg-elevated flex items-center gap-1.5"
+              title="Clear conversation history"
             >
-              <Trash2 size={15} />
+              <Trash2 size={14} />
+              <span className="hidden sm:inline">Clear</span>
             </button>
           ) : (
             <button 
               onClick={() => loginWithGoogle()}
-              className="px-2 py-1 bg-crested-gold/20 hover:bg-crested-gold/30 text-crested-gold border border-crested-gold/40 rounded text-[9px] font-mono font-black flex items-center gap-1"
-              title="Authenticate with Google to persist history"
+              className="px-3 py-1.5 bg-bg-elevated hover:border-accent/50 text-text-primary border border-border-subtle rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors duration-150"
+              title="Sign in with Google to persist chat history"
             >
-              <LogIn size={11} />
-              SIGN IN
+              <LogIn size={13} />
+              <span>Sign in to sync</span>
             </button>
           )}
 
           {!isInline && (
-            <>
-              <button onClick={() => setIsMinimized(!isMinimized)} className="hidden md:block text-crane-grey hover:text-white p-1">
+            <div className="flex items-center gap-1 ml-1">
+              <button 
+                onClick={() => setIsMinimized(!isMinimized)} 
+                className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-bg-elevated transition-colors"
+                title={isMinimized ? "Expand" : "Minimize"}
+              >
                 {isMinimized ? <Maximize2 size={15} /> : <Minimize2 size={15} />}
               </button>
-              <button onClick={() => setIsOpen(false)} className="text-crane-grey hover:text-white p-1 bg-white/5 rounded-full">
+              <button 
+                onClick={() => setIsOpen(false)} 
+                className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-bg-elevated transition-colors"
+                title="Close panel"
+              >
                 <X size={16} />
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {(!isMinimized || isInline) && (
         <>
-          {/* 2. Model Tier Selection Bar */}
-          <div className="px-3 py-2 bg-kampala-obsidian/90 border-b border-white/5 flex items-center justify-between text-[9px] font-mono">
-            <span className="text-crane-grey font-bold uppercase tracking-wider hidden sm:inline">Engine:</span>
-            <div className="flex items-center gap-1 w-full sm:w-auto justify-between">
-              {/* Tier 1: Argon (Complex) */}
-              <button
-                onClick={() => setSelectedModel('gemini-4-argon')}
-                className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 font-bold ${
-                  selectedModel === 'gemini-4-argon'
-                    ? 'bg-crested-gold text-lake-victoria shadow-[0_0_10px_rgba(212,175,55,0.4)]'
-                    : 'bg-white/5 text-crane-grey hover:text-white hover:bg-white/10'
-                }`}
-                title="gemini-4-argon: Complex strategic synthesis, deep reasoning, military statecraft"
-              >
-                <Sparkles size={11} />
-                <span>gemini-4-argon</span>
-              </button>
+          {/* Centered Kimi/Gemini Message Surface */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 scroll-smooth">
+            <div className="max-w-3xl mx-auto w-full space-y-6">
+              {messages.map((msg, idx) => (
+                <motion.div 
+                  key={msg.id || idx} 
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.16 }}
+                  className={msg.role === 'user' ? 'flex justify-end' : 'w-full'}
+                >
+                  {msg.role === 'user' ? (
+                    /* User Message — Subtle Filled Bubble Aligned Right */
+                    <div className="max-w-[85%] sm:max-w-[75%] bg-bg-elevated border border-border-subtle rounded-2xl rounded-tr-sm px-4 py-3 text-text-primary">
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {msg.text}
+                      </div>
+                      {msg.timestamp && (
+                        <div className="mt-1.5 text-[11px] font-mono text-text-secondary text-right">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* AI Response — Full-Width Unbubbled with Clean Typography */
+                    <div className="w-full py-2 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs text-text-secondary">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-md bg-bg-surface border border-border-subtle flex items-center justify-center text-accent">
+                            <BrainCircuit size={12} />
+                          </span>
+                          <span className="font-medium text-text-primary">U-ISMS Intelligence</span>
+                          {msg.modelTier && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="font-mono text-[11px] text-text-secondary">
+                                {msg.modelTier}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {msg.timestamp && (
+                          <span className="font-mono text-[11px] text-text-secondary">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
 
-              {/* Tier 2: Flash (General) */}
-              <button
-                onClick={() => setSelectedModel('gemini-3.8-flash')}
-                className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 font-bold ${
-                  selectedModel === 'gemini-3.8-flash'
-                    ? 'bg-intel-blue text-white shadow-[0_0_10px_rgba(79,142,247,0.4)]'
-                    : 'bg-white/5 text-crane-grey hover:text-white hover:bg-white/10'
-                }`}
-                title="gemini-3.8-flash: General situational analyst, multi-turn chat, SITREPs"
-              >
-                <Cpu size={11} />
-                <span>gemini-3.8-flash</span>
-              </button>
+                      <div className="pl-7 text-sm leading-[1.65] text-text-primary space-y-3 markdown-body report-justified text-justify">
+                        <Markdown>{msg.text}</Markdown>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
 
-              {/* Tier 3: Flash-Lite (Fast) */}
-              <button
-                onClick={() => setSelectedModel('gemini-3.1-flash-lite')}
-                className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 font-bold ${
-                  selectedModel === 'gemini-3.1-flash-lite'
-                    ? 'bg-savanna-sage text-lake-victoria shadow-[0_0_10px_rgba(92,184,92,0.4)]'
-                    : 'bg-white/5 text-crane-grey hover:text-white hover:bg-white/10'
-                }`}
-                title="gemini-3.1-flash-lite: Fast tactical telemetry, live stats, rapid triage"
-              >
-                <Zap size={11} />
-                <span>gemini-3.1-flash-lite</span>
-              </button>
+              {loading && (
+                <div className="w-full py-2 pl-7 flex items-center gap-2.5 text-xs font-mono text-text-secondary">
+                  <Loader2 size={14} className="animate-spin text-accent" />
+                  <span>Synthesizing telemetry with {selectedModel}...</span>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {/* 3. Scrollable Message Thread */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-lake-victoria/30 scroll-smooth custom-scrollbar">
-            {messages.map((msg, idx) => (
-              <motion.div 
-                key={msg.id || idx} 
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[92%] md:max-w-[88%] p-3.5 rounded-sm border ${
-                  msg.role === 'user' 
-                    ? 'bg-crested-gold/10 border-crested-gold/30 text-pearl-africa shadow-[0_0_15px_rgba(212,175,55,0.05)]' 
-                    : 'bg-kampala-obsidian/85 border-white/10 text-pearl-africa backdrop-blur-md'
-                }`}>
-                  <div className={`text-[8px] uppercase font-black tracking-[0.25em] mb-2 font-mono flex items-center justify-between ${
-                    msg.role === 'user' ? 'text-crested-gold' : 'text-crane-grey'
-                  }`}>
-                    <span className="flex items-center gap-1.5">
-                      {msg.role === 'user' ? (
-                        <>
-                          <div className="w-1.5 h-1.5 rounded-full bg-crested-gold animate-pulse" />
-                          <span>COMRADE MUGISOLO</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-1.5 h-1.5 rounded-full bg-savanna-sage shadow-[0_0_5px_var(--color-savanna-sage)]" />
-                          <span>U-ISMS HIGH COMMAND ANALYST</span>
-                        </>
-                      )}
-                    </span>
-                    {msg.modelTier && msg.role === 'model' && (
-                      <span className="text-[7px] text-crane-grey/60 px-1 py-0.5 rounded bg-white/5 border border-white/5 font-mono">
-                        {msg.modelTier}
-                      </span>
-                    )}
-                  </div>
+          {/* Composer & Suggestion Chips Area */}
+          <div className="px-4 sm:px-6 pb-5 pt-2 bg-bg-base/90 backdrop-blur-md">
+            <div className="max-w-3xl mx-auto w-full space-y-3">
+              {/* Top Row above Composer: Model-Tier Dropdown Chip + Quick Tactical Prompts */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Model-Tier Switcher Chip */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                    className="h-8 px-3 rounded-full bg-bg-surface hover:bg-bg-elevated border border-border-subtle text-xs font-mono text-text-primary flex items-center gap-2 transition-colors duration-150"
+                    title="Select Gemini Intelligence Model Tier"
+                  >
+                    <ActiveModelIcon size={13} className="text-accent" />
+                    <span>{selectedModel}</span>
+                    <ChevronDown size={13} className="text-text-secondary" />
+                  </button>
 
-                  <div className="whitespace-pre-wrap font-sans text-[12.5px] leading-relaxed tracking-tight text-pearl-africa markdown-body">
-                    <Markdown>{msg.text}</Markdown>
-                  </div>
-
-                  {msg.timestamp && (
-                    <div className="text-[7px] font-mono text-crane-grey/40 text-right mt-1.5">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {isModelMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-64 bg-bg-elevated border border-border-subtle rounded-xl p-1.5 shadow-xl z-30 space-y-1">
+                      {(['gemini-4-argon', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'] as ModelTier[]).map((tier) => {
+                        const meta = MODEL_META[tier];
+                        const Icon = meta.icon;
+                        const active = selectedModel === tier;
+                        return (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => {
+                              setSelectedModel(tier);
+                              setIsModelMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors duration-150 ${
+                              active
+                                ? 'bg-accent text-accent-ink font-semibold'
+                                : 'text-text-primary hover:bg-bg-surface'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Icon size={14} className={active ? 'text-accent-ink' : 'text-accent'} />
+                              <div>
+                                <div className="text-xs font-mono leading-tight">{meta.label}</div>
+                                <div className={`text-[11px] ${active ? 'text-accent-ink/80' : 'text-text-secondary'}`}>
+                                  {meta.desc}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              </motion.div>
-            ))}
 
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-kampala-obsidian border border-white/10 p-3.5 rounded-sm flex items-center gap-3 text-crane-grey text-[9px] font-black uppercase tracking-[0.25em]">
-                  <Loader2 size={14} className="animate-spin text-crested-gold" />
-                  <span>Synthesizing multi-domain telemetry [{selectedModel}]...</span>
+                {/* Quick Tactical Prompt Suggestion Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                  {QUICK_PROMPTS.map((qp, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel(qp.tier);
+                        handleSend(qp.query);
+                      }}
+                      disabled={loading}
+                      className="h-8 px-3 rounded-full bg-bg-surface hover:bg-bg-elevated border border-border-subtle hover:border-accent/50 text-xs text-text-secondary hover:text-text-primary whitespace-nowrap transition-colors duration-150 disabled:opacity-40"
+                    >
+                      {qp.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
 
-          {/* 4. Quick Strategic Intelligence Triggers */}
-          <div className="px-3 py-1.5 bg-kampala-obsidian/70 border-t border-white/5 overflow-x-auto custom-scrollbar flex items-center gap-1.5 shrink-0">
-            <span className="text-[8px] font-mono font-bold text-crane-grey uppercase shrink-0">PRESETS:</span>
-            {QUICK_PROMPTS.map((qp, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setSelectedModel(qp.tier);
-                  handleSend(qp.query);
-                }}
-                disabled={loading}
-                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[8px] font-mono text-pearl-africa whitespace-nowrap transition-all hover:border-crested-gold/30 disabled:opacity-30"
-              >
-                {qp.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 5. Input Area */}
-          <div className="p-3 bg-lake-victoria border-t border-white/5">
-            <div className="relative group">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder={
-                  isRecording
-                    ? 'Recording encrypted voice dispatch... Click stop to transcribe'
-                    : isTranscribing
-                    ? 'Transcribing audio via gemini-3.5-transcribe...'
-                    : `Brief U-ISMS High-Command via ${selectedModel}...`
-                }
-                className="w-full bg-kampala-obsidian border border-white/10 rounded px-3.5 py-3 pr-24 text-xs text-pearl-africa focus:outline-none focus:border-crested-gold/50 transition-all placeholder:text-crane-grey/40 resize-none min-h-[48px] max-h-28 custom-scrollbar font-mono tracking-tight"
-                rows={1}
-                disabled={loading || isTranscribing}
-              />
-              <div className="absolute right-2 top-2 bottom-2 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleToggleRecording}
-                  disabled={loading || isTranscribing}
-                  className={`w-9 h-full rounded transition-all flex items-center justify-center border ${
+              {/* Large Rounded (24px) Composer */}
+              <div className="relative bg-bg-elevated border border-border-subtle focus-within:border-accent rounded-[24px] px-4 py-3 transition-colors duration-150">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={
                     isRecording
-                      ? 'bg-brotherhood-crimson text-white border-brotherhood-crimson animate-pulse shadow-[0_0_12px_rgba(196,30,58,0.5)]'
+                      ? 'Recording encrypted voice dispatch... Click stop to transcribe'
                       : isTranscribing
-                      ? 'bg-intel-blue/20 text-intel-blue border-intel-blue/40'
-                      : 'bg-white/5 hover:bg-white/10 text-crane-grey hover:text-crested-gold border-white/10'
-                  }`}
-                  title={isRecording ? 'Stop recording & transcribe (gemini-3.5-transcribe)' : 'Voice dictation (gemini-3.5-transcribe)'}
-                >
-                  {isTranscribing ? (
-                    <Loader2 size={14} className="animate-spin text-intel-blue" />
-                  ) : isRecording ? (
-                    <Square size={13} />
-                  ) : (
-                    <Mic size={14} />
-                  )}
-                </button>
-                <button 
-                  onClick={() => handleSend()} 
-                  disabled={!input.trim() || loading || isTranscribing}
-                  className="w-9 h-full bg-crested-gold hover:bg-watch-gold text-lake-victoria rounded disabled:opacity-20 transition-all flex items-center justify-center shadow-md active:scale-90"
-                  title="Transmit query"
-                >
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                </button>
+                      ? 'Transcribing audio via gemini-3.5-transcribe...'
+                      : `Ask U-ISMS Intelligence (${selectedModel})...`
+                  }
+                  className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary focus:outline-none resize-none min-h-[44px] max-h-36 pr-24 leading-relaxed"
+                  rows={2}
+                  disabled={loading || isTranscribing}
+                />
+
+                <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleRecording}
+                    disabled={loading || isTranscribing}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-150 border ${
+                      isRecording
+                        ? 'bg-danger text-white border-danger'
+                        : isTranscribing
+                        ? 'bg-bg-surface text-info border-info/40'
+                        : 'bg-bg-surface hover:bg-bg-base text-text-secondary hover:text-text-primary border-border-subtle'
+                    }`}
+                    title={isRecording ? 'Stop recording & transcribe' : 'Voice dictation'}
+                  >
+                    {isTranscribing ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : isRecording ? (
+                      <Square size={13} />
+                    ) : (
+                      <Mic size={15} />
+                    )}
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => handleSend()} 
+                    disabled={!input.trim() || loading || isTranscribing}
+                    className="w-9 h-9 rounded-full bg-accent hover:opacity-90 text-accent-ink disabled:opacity-30 transition-all duration-150 flex items-center justify-center"
+                    title="Send message"
+                  >
+                    {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <div className="mt-2 flex items-center justify-between text-[8px] font-mono text-crane-grey uppercase tracking-[0.25em] px-1">
-              <span className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-savanna-sage' : 'bg-watch-gold'} animate-pulse`} />
-                {user ? `FIRESTORE SYNC: ${user.email === 'mugisolo@gmail.com' ? 'MUGISOLO (ADMIN)' : user.email?.split('@')[0]}` : 'LOCAL MODE (SIGN IN TO SYNC)'}
-              </span>
-              <span className="opacity-50 select-none">U-ISMS // ENCRYPTED</span>
+
+              {/* Subtle Sync Footnote */}
+              <div className="flex items-center justify-between text-[11px] font-mono text-text-secondary px-2">
+                <span>
+                  {user
+                    ? `Synced · ${user.email === 'mugisolo@gmail.com' ? 'Director Mugisolo' : user.email}`
+                    : 'Local session · Sign in to persist history'}
+                </span>
+                <span>Confidence protocol [TIER 1–5] enforced</span>
+              </div>
             </div>
           </div>
         </>

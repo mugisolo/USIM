@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PEPProfile, PoliticalDossier } from '../types';
@@ -10,14 +9,8 @@ import { loginWithGoogle, auth } from '../services/authService';
 import { PARLIAMENT_INTEL_BATCH_1 } from '../data/intelBatch';
 import { seedEALAHistoricalPEPs } from '../services/ealaSeeder';
 import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid
-} from 'recharts';
-import { 
-  Search, Users, Filter, Briefcase, UserCheck, X, Activity, 
-  BookOpen, History, Award, Zap, FileText, AlertTriangle, 
-  GraduationCap, Heart, Newspaper, Target, Crosshair, TrendingDown, MessageCircle,
-  BrainCircuit, Sparkles, Lock, Plus, Upload, Trash2, Shield, MoreVertical, Sun, Moon, ChevronRight
+  Search, Users, Filter, X, Activity, 
+  Zap, BrainCircuit, Sun, Moon, ChevronRight
 } from 'lucide-react';
 
 interface PEPAnalyticsProps {
@@ -181,7 +174,6 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
   const verifyPassword = async () => {
       if (passwordInput === '@Kaw3123') {
           try {
-              // Ensure user is logged in for Firestore Rules to pass
               if (!auth.currentUser) {
                   await loginWithGoogle();
               }
@@ -219,7 +211,6 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
   };
 
   const handleAddCandidate = async () => {
-    // Generate mock stats for the new PEP
     const sentimentScore = Math.floor(Math.random() * 60) + 20;
     const influenceIndex = Math.floor(Math.random() * 40) + 5;
     const mentions = Math.floor(Math.random() * 5000) + 500;
@@ -369,7 +360,7 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
             const text = event.target?.result as string;
             try {
                 const lines = text.split('\n');
-                const newCandidates: PEPCandidate[] = [];
+                const newCandidates: any[] = [];
                 lines.forEach((line, index) => {
                     if (index === 0) return;
                     const [name, constituency, party, category] = line.split(',').map(s => s.trim());
@@ -425,144 +416,113 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
 
   // -- Statistics Calculation --
   const totalPEPs = peps.length;
-  
-  const partyCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    peps.forEach(p => {
-      counts[p.party] = (counts[p.party] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [peps]);
-
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    peps.forEach(p => {
-      counts[p.category] = (counts[p.category] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [peps]);
-
-  // Colors for charts (Kampala Command alignment)
-  const COLORS = {
-    'NRM': 'var(--color-crested-gold)',
-    'NUP': 'var(--color-brotherhood-crimson)',
-    'FDC': 'var(--color-intel-blue)',
-    'Independent': 'var(--color-crane-grey)',
-    'DP': 'var(--color-savanna-sage)',
-    'UPC': 'var(--color-brotherhood-crimson)',
-    'ANT': '#A855F7',
-    'Other': 'var(--color-infra-steel)'
-  };
-
-  const getPartyColor = (party: string) => {
-    if (party === 'NRM') return COLORS.NRM;
-    if (party === 'NUP') return COLORS.NUP;
-    if (party === 'FDC') return COLORS.FDC;
-    if (party === 'Independent') return COLORS.Independent;
-    if (party === 'DP') return COLORS.DP;
-    if (party === 'UPC') return COLORS.UPC;
-    if (party === 'ANT') return COLORS.ANT;
-    return COLORS.Other;
-  };
-
-  // Prepare Stacked Bar Chart Data for Historical Results
-  const stackedBarData = useMemo(() => {
-    if (!politicalDossier?.politicalTrend) return [];
-    return politicalDossier.politicalTrend.map(trend => {
-        const dataPoint: any = { year: trend.year };
-        if (trend.results) {
-            trend.results.forEach(r => {
-                dataPoint[r.party] = r.percentage;
-            });
-        }
-        return dataPoint;
-    });
-  }, [politicalDossier]);
 
   return (
     <div className="space-y-6 animate-fade-in relative pb-20">
-      {/* 1. Summary Metrics & Primary Action */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="stacked-precision-card p-5 bg-gradient-to-br from-lake-victoria to-kampala-obsidian">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-crane-grey mb-2">Actor Nodes</p>
-          <div className="flex items-center justify-between">
-            <span className="text-2xl font-black text-pearl-africa">{totalPEPs}</span>
-            <Users size={18} className="text-crested-gold" />
+      {/* 1. Summary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-bg-surface border border-border-subtle rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-text-secondary mb-1">Actor Nodes Indexed</p>
+            <span className="font-display text-3xl font-bold text-text-primary tabular-nums">{totalPEPs}</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-bg-elevated border border-border-subtle flex items-center justify-center text-accent">
+            <Users size={18} />
           </div>
         </div>
-        <div className="stacked-precision-card p-5 bg-gradient-to-br from-lake-victoria to-kampala-obsidian">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-crane-grey mb-2">Relational Stability</p>
-          <div className="flex items-center justify-between">
-            <span className="text-2xl font-black text-savanna-sage">84.2%</span>
-            <Activity size={18} className="text-savanna-sage" />
+        <div className="bg-bg-surface border border-border-subtle rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-text-secondary mb-1">Relational Stability</p>
+            <span className="font-display text-3xl font-bold text-success tabular-nums">84.2%</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-bg-elevated border border-border-subtle flex items-center justify-center text-success">
+            <Activity size={18} />
           </div>
         </div>
       </div>
 
       {/* 2. Synthesis Intelligence Card */}
-      <section className="stacked-precision-card p-6 bg-synthesis-indigo/10 border-l-4 border-synthesis-indigo">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-synthesis-indigo/20 rounded">
-            <BrainCircuit className="text-pearl-africa" size={18} />
+      <section className="bg-bg-surface border border-border-subtle rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-bg-elevated border border-border-subtle flex items-center justify-center text-accent">
+              <BrainCircuit size={16} />
+            </div>
+            <div>
+              <h3 className="font-display text-sm font-semibold text-text-primary">Predictive Actor Logic</h3>
+              <p className="text-[11px] font-mono text-text-secondary uppercase tracking-wider">Coalition & Constituency Calculus</p>
+            </div>
           </div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-pearl-africa">Predictive Actor Logic</h3>
+          {globalRecommendations && (
+            <button
+              onClick={() => setGlobalRecommendations(null)}
+              className="px-3 py-1.5 text-xs font-mono text-text-secondary hover:text-text-primary border border-border-subtle rounded-lg transition-colors"
+            >
+              Refresh Analysis
+            </button>
+          )}
         </div>
         
         {isGeneratingRecommendations ? (
           <div className="py-6 flex flex-col items-center">
-             <BrainCircuit className="text-intel-blue animate-pulse mb-3" size={32} />
-             <p className="font-mono text-[9px] text-infra-steel uppercase animate-pulse">Computing regional power calculus...</p>
+            <BrainCircuit className="text-accent animate-pulse mb-2" size={24} />
+            <p className="font-mono text-xs text-text-secondary uppercase tracking-wider">Computing regional power calculus...</p>
           </div>
         ) : globalRecommendations ? (
-          <div className="space-y-4">
-            <p className="text-xs italic text-infra-steel leading-relaxed">"{globalRecommendations.summary}"</p>
-            <div className="space-y-2">
-              {globalRecommendations.moves.slice(0, 1).map((move, i) => (
-                <div key={i} className="p-3 bg-white/5 rounded border border-white/5">
-                  <p className="text-[9px] font-black text-intel-blue uppercase mb-1">Primary Strategy: {move.title}</p>
-                  <p className="text-xs">{move.logic}</p>
+          <div className="space-y-4 report-justified">
+            <p className="text-sm text-text-primary/90 leading-relaxed border-l-2 border-accent pl-4 text-justify">
+              "{globalRecommendations.summary}"
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {globalRecommendations.moves.slice(0, 2).map((move, i) => (
+                <div key={i} className="p-4 bg-bg-elevated/60 rounded-xl border border-border-subtle">
+                  <p className="text-xs font-mono font-medium text-accent uppercase tracking-wider mb-1">
+                    Strategy 0{i + 1}: {move.title}
+                  </p>
+                  <p className="text-xs text-text-secondary leading-relaxed text-justify">{move.logic}</p>
                 </div>
               ))}
             </div>
-            <button onClick={() => setGlobalRecommendations(null)} className="w-full py-2 text-[10px] font-black uppercase text-infra-steel mt-2 border border-white/5 rounded">Refine Analysis</button>
           </div>
         ) : (
-          <div className="flex flex-col items-center py-4">
-             <p className="text-[11px] text-infra-steel mb-4 text-center">Protocol ready for automated actor-cluster synthesis.</p>
-             <button 
-                onClick={generateGlobalAdvice}
-                className="px-6 py-2 bg-intel-blue text-pearl-white text-[10px] font-black uppercase tracking-widest rounded"
-             >
-               Synthesize Matrix
-             </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+            <p className="text-xs text-text-secondary">Protocol ready for automated actor-cluster synthesis.</p>
+            <button 
+              onClick={generateGlobalAdvice}
+              className="px-4 py-2 bg-accent text-accent-ink text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Synthesize Matrix
+            </button>
           </div>
         )}
       </section>
 
-      {/* 3. Search & Filter Interface */}
-      <div className="space-y-4 sticky top-16 bg-kampala-obsidian/90 backdrop-blur-md pt-2 pb-4 z-30">
+      {/* 3. Search & Filter Bar */}
+      <div className="bg-bg-surface border border-border-subtle rounded-2xl p-4 space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-infra-steel" size={14} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" size={15} />
           <input 
             type="text"
-            placeholder="Search Actor Name or Entity..."
+            placeholder="Search Actor Name or Constituency..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-nile-slate border border-white/10 rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-intel-blue placeholder:text-infra-steel font-medium"
+            className="w-full bg-bg-elevated border border-border-subtle rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent placeholder:text-text-secondary"
           />
         </div>
         
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide py-1 no-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {['All', 'NRM', 'NUP', 'FDC', 'DP', 'UPC', 'Independent'].map(party => (
             <button 
               key={party}
               onClick={() => {
-                 setFilterParty(party);
-                 if (window.navigator?.vibrate) window.navigator.vibrate(5);
+                setFilterParty(party);
+                if (window.navigator?.vibrate) window.navigator.vibrate(5);
               }}
-              className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${filterParty === party ? 'bg-crested-gold text-lake-victoria border-crested-gold' : 'bg-transparent text-crane-grey border-white/5'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                filterParty === party
+                  ? 'bg-accent text-accent-ink border-accent font-semibold'
+                  : 'bg-bg-elevated text-text-secondary border-border-subtle hover:text-text-primary'
+              }`}
             >
               {party}
             </button>
@@ -570,180 +530,213 @@ export const PEPAnalytics: React.FC<PEPAnalyticsProps> = ({ peps }) => {
         </div>
       </div>
 
-      {/* 4. The Stacked Actor List */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between px-2 mb-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-infra-steel">Active Actors // Tier 1-5</span>
-            <Filter size={12} className="text-infra-steel" />
+      {/* 4. Clean Data Table */}
+      <div className="bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border-subtle flex items-center justify-between">
+          <span className="text-xs font-mono uppercase tracking-wider text-text-secondary">
+            Active Actors Ledger ({filteredPEPs.length})
+          </span>
+          <Filter size={14} className="text-text-secondary" />
         </div>
         
         {filteredPEPs.length === 0 ? (
-          <div className="py-20 text-center">
-            <Users size={48} className="mx-auto text-white/5 mb-4" />
-            <p className="text-infra-steel text-sm font-medium">No matching intelligence nodes found.</p>
+          <div className="py-16 text-center">
+            <Users size={36} className="mx-auto text-text-secondary/40 mb-3" />
+            <p className="text-text-secondary text-sm">No matching intelligence nodes found.</p>
           </div>
         ) : (
-          filteredPEPs.map((pep) => (
-            <button 
-              key={pep.id}
-              onClick={() => handleRowClick(pep)}
-              className="w-full stacked-precision-card p-5 flex items-center justify-between group active:bg-white/5"
-            >
-              <div className="flex items-center gap-5">
-                <div className="w-12 h-12 rounded-sm bg-lake-victoria border border-white/10 flex items-center justify-center font-mono text-xs font-black relative overflow-hidden">
-                  {pep.party === 'NRM' && <div className="absolute inset-x-0 bottom-0 h-1 bg-crested-gold" />}
-                  {pep.party === 'NUP' && <div className="absolute inset-x-0 bottom-0 h-1 bg-brotherhood-crimson" />}
-                  {pep.party === 'FDC' && <div className="absolute inset-x-0 bottom-0 h-1 bg-intel-blue" />}
-                  <span className="opacity-60 text-crane-grey uppercase">{pep.name.split(' ').map(n => n[0]).join('')}</span>
-                </div>
-                <div className="text-left">
-                  <h4 className="text-[14px] font-black text-pearl-africa leading-none mb-2 group-active:text-crested-gold uppercase tracking-tight">{pep.name}</h4>
-                  <p className="text-[9px] font-mono text-crane-grey uppercase tracking-widest">
-                    {pep.party} <span className="opacity-30">//</span> {pep.constituency}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="flex items-center gap-1.5 justify-end mb-1">
-                    <div className={`w-2 h-2 rounded-full ${pep.sentimentScore > 60 ? 'bg-savanna-sage' : pep.sentimentScore > 40 ? 'bg-nile-amber' : 'bg-brotherhood-crimson'} shadow-sm`} />
-                    <span className="text-xs font-black font-mono tracking-tighter">{pep.sentimentScore}%</span>
-                  </div>
-                  <p className="text-[8px] font-black text-crane-grey uppercase tracking-widest">Sentiment</p>
-                </div>
-                <ChevronRight size={16} className="text-crane-grey opacity-20 group-active:translate-x-1 transition-transform" />
-              </div>
-            </button>
-          ))
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-bg-elevated/60 border-b border-border-subtle text-[11px] font-mono uppercase tracking-wider text-text-secondary">
+                  <th className="py-3 px-5">Actor</th>
+                  <th className="py-3 px-4">Affiliation</th>
+                  <th className="py-3 px-4">Constituency / Domain</th>
+                  <th className="py-3 px-4">Confidence</th>
+                  <th className="py-3 px-5 text-right">Sentiment</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle text-sm">
+                {filteredPEPs.map((pep) => (
+                  <tr 
+                    key={pep.id}
+                    onClick={() => handleRowClick(pep)}
+                    className="hover:bg-bg-elevated/50 transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-bg-elevated border border-border-subtle flex items-center justify-center font-mono text-xs font-medium text-text-secondary shrink-0">
+                          {pep.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <span className="font-medium text-text-primary group-hover:text-accent transition-colors">
+                          {pep.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-mono border ${
+                        pep.party === 'NRM' ? 'bg-accent/10 text-accent border-accent/30' :
+                        pep.party === 'NUP' ? 'bg-danger/10 text-danger border-danger/30' :
+                        pep.party === 'FDC' ? 'bg-info/10 text-info border-info/30' :
+                        'bg-bg-elevated text-text-secondary border-border-subtle'
+                      }`}>
+                        {pep.party}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-text-secondary font-mono text-xs">
+                      {pep.constituency}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="text-[11px] font-mono text-text-secondary">
+                        {pep.confidence || '[TIER 3 — PROBABLE]'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="inline-flex items-center gap-2 justify-end font-mono tabular-nums">
+                        <span className={`w-2 h-2 rounded-full ${
+                          pep.sentimentScore > 60 ? 'bg-success' : pep.sentimentScore > 40 ? 'bg-warning' : 'bg-danger'
+                        }`} />
+                        <span className="text-xs font-medium text-text-primary">{pep.sentimentScore}%</span>
+                        <ChevronRight size={14} className="text-text-secondary opacity-40 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* 5. Detail Panel - Expanded Intelligence */}
+      {/* 5. Detail Slide-Over Panel */}
       <AnimatePresence>
         {selectedPEP && (
-          <motion.div 
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[100] bg-kampala-obsidian overflow-y-auto"
-          >
-            <div className="sticky top-0 bg-kampala-obsidian/90 border-b border-white/5 h-16 flex items-center justify-between px-6 z-10 backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <motion.div 
-                  initial={{ scale: 0.5, rotate: -45 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className="w-1.5 h-6 bg-intel-blue rounded-full shadow-[0_0_10px_rgba(49,130,206,0.5)]" 
-                />
-                <h3 className="text-sm font-black uppercase tracking-tighter glitch-text" data-text="Actor Forensics">Actor Forensics</h3>
-              </div>
-              <button 
-                onClick={handleClosePanel}
-                className="p-2 hover:bg-white/5 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-8 max-w-lg mx-auto">
-              {/* Header Info */}
-              <div className="flex gap-6 items-start">
-                <div className="w-24 h-24 rounded-lg bg-nile-slate border border-white/10 flex items-center justify-center text-3xl font-black text-white/10">
-                   {selectedPEP.name[0]}
+          <div className="fixed inset-0 z-[100] flex justify-end bg-black/70 backdrop-blur-sm">
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+              className="w-full max-w-xl bg-bg-surface border-l border-border-subtle h-full overflow-y-auto flex flex-col"
+            >
+              <div className="sticky top-0 bg-bg-surface/95 border-b border-border-subtle h-16 flex items-center justify-between px-6 z-10 backdrop-blur-md">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-accent" />
+                  <h3 className="font-display text-sm font-semibold text-text-primary">Actor Forensics Dossier</h3>
                 </div>
-                <div className="flex-grow">
-                  <h2 className="text-2xl font-black tracking-tighter leading-none mb-1">{selectedPEP.name}</h2>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="px-2 py-0.5 bg-intel-blue/10 border border-intel-blue/20 text-[9px] font-black text-intel-blue uppercase rounded tracking-widest">{selectedPEP.party}</span>
-                    <span className="px-2 py-0.5 bg-infra-steel/10 border border-infra-steel/20 text-[9px] font-black text-infra-steel uppercase rounded tracking-widest">{selectedPEP.constituency}</span>
-                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded tracking-widest shadow-sm ${
-                      selectedPEP.confidence?.includes('HIGH') ? 'bg-stable-sage/10 border border-stable-sage/30 text-stable-sage' : 'bg-watch-gold/10 border border-watch-gold/30 text-watch-gold'
-                    }`}>
-                      {selectedPEP.confidence || '[TIER 3 — PROXIMAL]'}
-                    </span>
+                <button 
+                  onClick={handleClosePanel}
+                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6 flex-grow">
+                {/* Header Info */}
+                <div className="flex gap-4 items-start">
+                  <div className="w-16 h-16 rounded-2xl bg-bg-elevated border border-border-subtle flex items-center justify-center text-xl font-display font-bold text-accent shrink-0">
+                    {selectedPEP.name[0]}
+                  </div>
+                  <div className="flex-grow">
+                    <h2 className="font-display text-2xl font-bold tracking-tight text-text-primary">
+                      {selectedPEP.name}
+                    </h2>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2.5 py-0.5 bg-accent/10 border border-accent/30 text-xs font-mono text-accent rounded-md">
+                        {selectedPEP.party}
+                      </span>
+                      <span className="px-2.5 py-0.5 bg-bg-elevated border border-border-subtle text-xs font-mono text-text-secondary rounded-md">
+                        {selectedPEP.constituency}
+                      </span>
+                      <span className="px-2.5 py-0.5 bg-bg-elevated border border-border-subtle text-xs font-mono text-text-secondary rounded-md">
+                        {selectedPEP.confidence || '[TIER 3 — PROXIMAL]'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Stability Metrics Chart */}
-              <section className="stacked-precision-card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-infra-steel">Sentiment Calculus</h4>
-                  <Activity size={14} className="text-intel-blue" />
-                </div>
-                <div className="h-40 w-full bg-kampala-obsidian rounded-lg p-4 flex items-end justify-between gap-2 overflow-hidden relative">
-                   <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--color-intel-blue) 0.5px, transparent 0.5px)', backgroundSize: '8px 8px' }} />
-                   {[65, 42, 88, 59, 71, 84, selectedPEP.sentimentScore].map((h, i) => (
-                     <div key={i} className="flex-1 bg-intel-blue/10 rounded-t relative group overflow-hidden">
+                {/* Stability Metrics Chart */}
+                <section className="bg-bg-elevated/50 border border-border-subtle rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-text-secondary">Sentiment Trajectory</h4>
+                    <span className="text-xs font-mono font-medium text-text-primary tabular-nums">{selectedPEP.sentimentScore}% Current</span>
+                  </div>
+                  <div className="h-36 w-full bg-bg-surface border border-border-subtle rounded-xl p-4 flex items-end justify-between gap-2">
+                    {[65, 42, 88, 59, 71, 84, selectedPEP.sentimentScore].map((h, i) => (
+                      <div key={i} className="flex-1 h-full bg-bg-elevated rounded-md relative overflow-hidden">
                         <motion.div 
                           initial={{ height: 0 }}
                           animate={{ height: `${h}%` }}
-                          transition={{ delay: i * 0.05, type: 'spring', damping: 20 }}
-                          className={`w-full rounded-t absolute bottom-0 ${i === 6 ? 'bg-intel-blue shadow-[0_0_10px_rgba(49,130,206,0.4)]' : 'bg-intel-blue/60'}`}
+                          transition={{ delay: i * 0.04, type: 'spring', damping: 20 }}
+                          className={`w-full rounded-md absolute bottom-0 ${
+                            i === 6 ? 'bg-accent' : 'bg-text-secondary/40'
+                          }`}
                         />
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-white/10 transition-opacity" />
-                     </div>
-                   ))}
-                </div>
-                <div className="flex justify-between mt-3 px-1">
-                   {['W: -6', 'W: -5', 'W: -4', 'W: -3', 'W: -2', 'W: -1', 'NOW'].map(v => (
-                     <span key={v} className="text-[8px] font-mono text-infra-steel uppercase tracking-tighter">{v}</span>
-                   ))}
-                </div>
-              </section>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-2.5 px-1">
+                    {['W-6', 'W-5', 'W-4', 'W-3', 'W-2', 'W-1', 'NOW'].map(v => (
+                      <span key={v} className="text-[10px] font-mono text-text-secondary tabular-nums">{v}</span>
+                    ))}
+                  </div>
+                </section>
 
-              {/* Intelligence Dossier */}
-              <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <BrainCircuit className="text-intel-blue" size={20} />
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em]">Synthesis Mind Assessment</h4>
-                </div>
-                
-                {isGeneratingStrategy ? (
-                  <div className="flex flex-col items-center py-10 opacity-50">
-                    <Zap className="animate-pulse text-intel-blue mb-2" size={24} />
-                    <p className="text-[10px] font-mono uppercase animate-pulse">Consulting Strategic Oracle...</p>
+                {/* Intelligence Dossier */}
+                <section className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <BrainCircuit className="text-accent" size={16} />
+                    <h4 className="font-display text-sm font-semibold text-text-primary">Synthesis Mind Assessment</h4>
                   </div>
-                ) : aiReport ? (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="synth-border pl-4">
-                       <p className="text-[9px] font-black text-intel-blue uppercase mb-1">Grand Strategy Verdict</p>
-                       <p className="text-sm font-bold leading-relaxed">{aiReport.grandStrategy}</p>
+                  
+                  {isGeneratingStrategy ? (
+                    <div className="flex flex-col items-center py-10 bg-bg-elevated/40 border border-border-subtle rounded-2xl">
+                      <Zap className="animate-pulse text-accent mb-2" size={20} />
+                      <p className="text-xs font-mono text-text-secondary uppercase tracking-wider">Consulting Strategic Oracle...</p>
                     </div>
-                    <div className="p-4 bg-white/5 rounded border border-white/5">
-                       <p className="text-[9px] font-black text-infra-steel uppercase mb-2">Theater SitRep</p>
-                       <p className="text-xs text-infra-steel leading-relaxed whitespace-pre-wrap">{aiReport.sitRep}</p>
+                  ) : aiReport ? (
+                    <div className="space-y-4 report-justified">
+                      <div className="p-4 bg-bg-elevated/60 rounded-xl border-l-2 border-accent">
+                        <p className="text-[11px] font-mono text-accent uppercase tracking-wider mb-1">Grand Strategy Verdict</p>
+                        <p className="text-sm font-medium text-text-primary leading-relaxed text-justify">{aiReport.grandStrategy}</p>
+                      </div>
+                      <div className="p-4 bg-bg-elevated/40 rounded-xl border border-border-subtle">
+                        <p className="text-[11px] font-mono text-text-secondary uppercase tracking-wider mb-1.5">Theater SitRep</p>
+                        <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap text-justify">{aiReport.sitRep}</p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-8 text-center bg-white/5 rounded-lg border border-white/5 border-dashed">
-                    <p className="text-[11px] text-infra-steel">Deep-scan dossier extraction requires authorization.</p>
-                    <button 
-                      onClick={() => handleRowClick(selectedPEP!)}
-                      className="mt-4 px-6 py-2 border border-intel-blue text-intel-blue text-[10px] font-black uppercase tracking-widest rounded"
-                    >
-                      Authenticate Ingestion
-                    </button>
-                  </div>
-                )}
-              </section>
+                  ) : (
+                    <div className="p-6 text-center bg-bg-elevated/30 rounded-2xl border border-border-subtle">
+                      <p className="text-xs text-text-secondary mb-3">Deep-scan dossier extraction ready.</p>
+                      <button 
+                        onClick={() => handleRowClick(selectedPEP)}
+                        className="px-4 py-2 bg-accent text-accent-ink text-xs font-semibold rounded-lg"
+                      >
+                        Generate Dossier
+                      </button>
+                    </div>
+                  )}
+                </section>
 
-              {/* Actions */}
-              <div className="pt-10 flex gap-4">
-                <button 
-                  className="flex-1 bg-intel-blue text-pearl-white py-4 rounded font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-[0.97] transition-all"
-                >
-                  Generate Dossier
-                </button>
-                <button 
-                  onClick={() => setIsNightOps(!isNightOps)}
-                  className="p-4 rounded bg-nile-slate border border-white/10 active:scale-[0.97] transition-all"
-                >
-                  {isNightOps ? <Sun size={20} /> : <Moon size={20} />}
-                </button>
+                {/* Actions */}
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    onClick={() => handleRowClick(selectedPEP)}
+                    className="flex-1 bg-accent text-accent-ink py-3 rounded-xl font-semibold text-xs hover:opacity-90 transition-opacity"
+                  >
+                    Regenerate Dossier
+                  </button>
+                  <button 
+                    onClick={() => setIsNightOps(!isNightOps)}
+                    className="p-3 rounded-xl bg-bg-elevated border border-border-subtle text-text-secondary hover:text-text-primary transition-colors"
+                  >
+                    {isNightOps ? <Sun size={18} /> : <Moon size={18} />}
+                  </button>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

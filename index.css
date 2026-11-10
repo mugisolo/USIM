@@ -1,39 +1,130 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+.theme-dark {
+  /* Uganda Heritage — Calm Command Dark Theme (Default "Night Ops") */
+  --bg-base: #0A0A0B;
+  --bg-surface: #141416;
+  --bg-elevated: #1D1D20;
+  --border: #2A2A2E;
+  --text-primary: #F5F5F4;
+  --text-secondary: #A1A1AA;
+  --accent: #FCDC04;
+  --accent-ink: #0A0A0B;
+  --accent-subtle: rgba(252, 220, 4, 0.12);
+  --danger: #D90000;
+  --warning: #F59E0B;
+  --success: #34D399;
+  --info: #60A5FA;
+}
+
+.theme-light,
+.day-briefing-active {
+  /* Uganda Heritage — "Day Briefing" Light Theme */
+  --bg-base: #FAFAF9;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --border: #E7E5E4;
+  --text-primary: #18181B;
+  --text-secondary: #52525B;
+  --accent: #FCDC04;
+  --accent-ink: #0A0A0B;
+  --accent-subtle: rgba(252, 220, 4, 0.22);
+  --danger: #D90000;
+  --warning: #D97706;
+  --success: #059669;
+  --info: #2563EB;
+}
+
 @theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* Kampala Command Palette */
-  --color-lake-victoria: #0B1120;
-  --color-kampala-obsidian: #1A1D23;
-  --color-crested-gold: #D4AF37;
-  --color-brotherhood-crimson: #C41E3A;
-  --color-pearl-africa: #F5F1E8;
-  --color-crane-grey: #7A8699;
-  --color-savanna-sage: #3D6B4F;
-  --color-nile-amber: #C8941E;
-  --color-rift-rust: #A0401A;
-  --color-synthesis-indigo: #2A3F5F;
-  --color-intel-blue: #3182CE;
-  --color-infra-steel: #718096;
-  --color-threat-crimson: #C41E3A;
+  /* Primary Calm Command Tokens */
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-border-subtle: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+
+  /* Semantic Aliases for Backward Compatibility Across Components */
+  --color-lake-victoria: var(--bg-base);
+  --color-kampala-obsidian: var(--bg-surface);
+  --color-nile-slate: var(--bg-elevated);
+  --color-crested-gold: var(--accent);
+  --color-watch-gold: var(--accent);
+  --color-brotherhood-crimson: var(--danger);
+  --color-threat-crimson: var(--danger);
+  --color-pearl-africa: var(--text-primary);
+  --color-pearl-white: var(--text-primary);
+  --color-crane-grey: var(--text-secondary);
+  --color-infra-steel: var(--text-secondary);
+  --color-savanna-sage: var(--success);
+  --color-stable-sage: var(--success);
+  --color-nile-amber: var(--warning);
+  --color-rift-rust: var(--warning);
+  --color-synthesis-indigo: var(--bg-elevated);
+  --color-intel-blue: var(--info);
 }
 
 @layer base {
-  body {
-    @apply bg-lake-victoria text-pearl-africa font-sans antialiased selection:bg-crested-gold/30 overflow-x-hidden;
+  html {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    letter-spacing: -0.011em;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
   }
 
-  /* Custom Scrollbar for Swiss Precision */
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Accessible 2px Uganda Yellow Focus Ring */
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Subtle Minimal Scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-lake-victoria) transparent;
+    scrollbar-color: var(--border) transparent;
   }
 
   ::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -41,102 +132,151 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(212, 175, 55, 0.2);
-    border-radius: 10px;
+    background: var(--border);
+    border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(212, 175, 55, 0.4);
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-      linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
-      linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.01));
-    background-size: 100% 4px, 3px 100%;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0.15;
-  }
-
-  body::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.4) 100%);
-    pointer-events: none;
-    z-index: 101;
+    background: var(--text-secondary);
   }
 }
 
-.night-ops-active {
-  filter: sepia(100%) hue-rotate(-50deg) saturate(300%) brightness(0.6) contrast(1.1);
+/* Calm Command Card Surface */
+.stacked-precision-card,
+.calm-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
 }
 
-.stacked-precision-card {
-  @apply bg-kampala-obsidian border border-white/5 rounded-sm overflow-hidden transition-all duration-300 hover:border-crested-gold/20 active:scale-[0.99] backdrop-blur-sm;
-}
-
-.threat-banner-pulse {
-  animation: pulse-danger 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse-danger {
-  0%, 100% { background-color: var(--color-threat-crimson); }
-  50% { background-color: #9B2C2C; }
-}
-
-.glitch-text {
-  position: relative;
-  display: inline-block;
-}
-
-.glitch-text::before,
-.glitch-text::after {
-  content: attr(data-text);
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.8;
-}
-
-.glitch-text::before {
-  color: #0ff;
-  z-index: -1;
-  animation: glitch-anim 0.3s infinite;
-}
-
-.glitch-text::after {
-  color: #f0f;
-  z-index: -2;
-  animation: glitch-anim 0.3s infinite reverse;
-}
-
-@keyframes glitch-anim {
-  0% { transform: translate(0); }
-  20% { transform: translate(-2px, 2px); }
-  40% { transform: translate(-2px, -2px); }
-  60% { transform: translate(2px, 2px); }
-  80% { transform: translate(2px, -2px); }
-  100% { transform: translate(0); }
+.stacked-precision-card:hover,
+.calm-card:hover {
+  border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--border));
 }
 
 .synth-border {
-  border-left: 4px solid var(--color-intel-blue);
+  border-left: 2px solid var(--accent);
 }
 
-/* 8dp baseline grid spacers */
-.mt-8dp { margin-top: 8px; }
-.mb-16dp { margin-bottom: 16px; }
-.p-24dp { padding: 24px; }
+/* Justified Margins & Structured Calm Command Report Formatting */
+.report-justified,
+.report-justified p,
+.report-justified li,
+.markdown-body p,
+.markdown-body li,
+article p {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+.markdown-body {
+  color: var(--text-primary);
+  line-height: 1.7;
+}
+
+.markdown-body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  margin-top: 1.35rem;
+  margin-bottom: 0.65rem;
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--accent);
+  text-align: left;
+}
+
+.markdown-body h3:first-child {
+  margin-top: 0.25rem;
+}
+
+.markdown-body h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 1rem;
+  margin-bottom: 0.45rem;
+  text-align: left;
+}
+
+.markdown-body p {
+  margin-bottom: 0.85rem;
+}
+
+.markdown-body blockquote {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.65rem;
+  padding: 0.75rem 1rem;
+  margin: 0.85rem 0;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.markdown-body blockquote p {
+  margin-bottom: 0.25rem;
+  text-align: left;
+}
+
+.markdown-body blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.65rem 0 0.95rem 1.25rem;
+  padding-left: 0.25rem;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body li {
+  margin-bottom: 0.55rem;
+  padding-left: 0.2rem;
+}
+
+.markdown-body li::marker {
+  color: var(--accent);
+}
+
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.15rem 0;
+}
+
+.markdown-body strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.775rem;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 180ms ease-out forwards;
+}
+
+

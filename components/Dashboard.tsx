@@ -1,5 +1,3 @@
-
-// Fix: Added missing imports for React, Lucide icons, types, components, and services
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -27,15 +25,11 @@ import {
   TrendingUp, 
   Menu, 
   X, 
-  Bell, 
   Command, 
-  Eye, 
-  EyeOff, 
   Moon, 
   Sun,
   LayoutGrid,
   ChevronDown,
-  ChevronUp,
   AlertTriangle,
   Zap,
   CheckCircle2,
@@ -45,24 +39,25 @@ import {
   ShieldCheck,
   LogIn,
   LogOut,
-  UserCheck,
   Plus,
   Radio,
   ExternalLink,
   Sparkles,
   Compass,
-  RefreshCw,
   Loader2,
   MapPin,
   Trash2,
-  FolderOpen,
-  Layers,
   Search,
-  Terminal
+  Terminal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  SlidersHorizontal,
+  Clock,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewState, Incident, PEPProfile, StrategicAsset } from '../types';
-import { StatCard } from './StatCard';
 import { SecurityMap } from './SecurityMap';
 import { SynthesisMind } from './SynthesisMind';
 import { PEPAnalytics } from './PEPAnalytics';
@@ -71,13 +66,19 @@ import { Chatbot } from './Chatbot';
 import { PEPForensics } from './PEPForensics';
 import { ThreatHorizon } from './ThreatHorizon';
 import { OperationalAuditPanel, logOperationalAction } from './OperationalAuditPanel';
+import { SubscriptionModal } from './SubscriptionModal';
+import {
+  SubscriptionState,
+  getInitialSubscriptionState,
+  subscribeToSubscriptionChanges,
+  getSubscriptionStatusMeta
+} from '../services/subscriptionService';
 import { 
   subscribeToIncidents, 
   subscribeToParliamentary,
   subscribeToAssets,
   addIncidentToDb,
-  deleteIncidentFromDb,
-  seedDatabase
+  deleteIncidentFromDb
 } from '../services/firestoreService';
 import {
   fetchMapsIntelligence,
@@ -86,40 +87,38 @@ import {
 } from '../services/geminiService';
 import { auth, loginWithGoogle, logout } from '../services/authService';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { TOP_100_UG_POLITICIANS, STRATEGIC_ASSET_SEED } from '../data/seedData';
 
-// --- THEATER STABILITY MATRIX COMPONENT ---
+// --- THEATER STABILITY MATRIX STACK ---
 const StabilityStack: React.FC<{ region: string; score: number; trend: 'up' | 'down' | 'stable' }> = ({ region, score, trend }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   const getStabilityMeta = (s: number) => {
-    if (s >= 80) return { color: 'text-savanna-sage', bg: 'bg-savanna-sage/10', border: 'border-savanna-sage/20' };
-    if (s >= 60) return { color: 'text-nile-amber', bg: 'bg-nile-amber/10', border: 'border-nile-amber/20' };
-    if (s >= 40) return { color: 'text-nile-amber', bg: 'bg-nile-amber/15', border: 'border-nile-amber/30' };
-    if (s >= 20) return { color: 'text-rift-rust', bg: 'bg-rift-rust/10', border: 'border-rift-rust/20' };
-    return { color: 'text-brotherhood-crimson', bg: 'bg-brotherhood-crimson/10', border: 'border-brotherhood-crimson/20' };
+    if (s >= 80) return { color: 'text-success', dot: 'bg-success', label: 'Nominal' };
+    if (s >= 60) return { color: 'text-info', dot: 'bg-info', label: 'Stable' };
+    if (s >= 40) return { color: 'text-warning', dot: 'bg-warning', label: 'Elevated' };
+    return { color: 'text-danger', dot: 'bg-danger', label: 'Critical' };
   };
 
   const meta = getStabilityMeta(score);
 
   return (
-    <div className={`transition-all duration-300 border ${meta.bg} ${meta.border} rounded-sm overflow-hidden mb-1.5`}>
+    <div className="bg-bg-surface border border-border-subtle rounded-xl overflow-hidden transition-colors duration-150">
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-4 flex items-center justify-between"
+        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-bg-elevated/60 transition-colors duration-150"
       >
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] opacity-80">{region}</span>
-          <span className={`text-2xl font-black tracking-tighter ${meta.color}`}>{score}</span>
+        <div className="flex items-center gap-3">
+          <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
+          <span className="font-mono text-xs font-medium text-text-primary">{region}</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end">
-            <span className="text-[8px] font-bold opacity-50 uppercase tracking-widest">Trend</span>
-            {trend === 'up' && <TrendingUp size={12} className="text-savanna-sage" />}
-            {trend === 'down' && <TrendingUp size={12} className="text-brotherhood-crimson rotate-180" />}
-            {trend === 'stable' && <MoreVertical size={12} className="text-crane-grey rotate-90" />}
+        <div className="flex items-center gap-3">
+          <span className={`font-display text-xl font-bold tabular-nums ${meta.color}`}>{score}</span>
+          <div className="flex items-center gap-1 text-text-secondary">
+            {trend === 'up' && <TrendingUp size={13} className="text-success" />}
+            {trend === 'down' && <TrendingUp size={13} className="text-danger rotate-180" />}
+            {trend === 'stable' && <MoreVertical size={13} className="text-text-secondary rotate-90" />}
           </div>
-          <ChevronDown size={14} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+          <ChevronDown size={14} className={`text-text-secondary transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
       </button>
       <AnimatePresence>
@@ -128,22 +127,21 @@ const StabilityStack: React.FC<{ region: string; score: number; trend: 'up' | 'd
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="px-4 pb-4 border-t border-white/5"
+            transition={{ duration: 0.16 }}
+            className="px-4 pb-4 border-t border-border-subtle"
           >
-            <div className="pt-4 space-y-3">
-              <div className="flex justify-between text-[10px] items-center">
-                <span className="uppercase font-bold tracking-widest text-crane-grey">Kinetic Friction Points</span>
-                <span className="font-mono text-savanna-sage bg-savanna-sage/10 px-2 py-0.5 rounded-full border border-savanna-sage/20">NOMINAL</span>
+            <div className="pt-3 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-text-secondary">Kinetic Friction Posture</span>
+                <span className="font-mono text-success">{meta.label}</span>
               </div>
-              <div className="flex justify-between text-[10px] items-center">
-                <span className="uppercase font-bold tracking-widest text-crane-grey">Diplomatic Pulse</span>
-                <span className="text-nile-amber font-black italic">PROXIMAL_THREAT</span>
+              <div className="flex justify-between items-center">
+                <span className="text-text-secondary">Diplomatic Pulse</span>
+                <span className="font-mono text-warning">Proximal Watch</span>
               </div>
-              <div className="bg-black/20 p-3 rounded mt-2">
-                 <p className="text-[9px] font-mono leading-relaxed text-pearl-africa/60">
-                   Recent OSINT clusters indicate troop movement in the sub-region. Analysis suggests a 64% likelihood of localized instability within T-minus 48 hours.
-                 </p>
-              </div>
+              <p className="text-xs font-mono leading-relaxed text-text-secondary bg-bg-base p-3 rounded-lg border border-border-subtle text-justify report-justified">
+                OSINT clusters indicate active patrol synchronization across the sub-region. 48-hour stability projection remains monitored.
+              </p>
             </div>
           </motion.div>
         )}
@@ -152,7 +150,7 @@ const StabilityStack: React.FC<{ region: string; score: number; trend: 'up' | 'd
   );
 };
 
-// --- THEATER STABILITY MATRIX RECHARTS COMPONENT ---
+// --- THEATER STABILITY MATRIX RECHARTS COMPONENT (NO GRADIENTS, THIN GRID LINES) ---
 interface StabilityMatrixChartsProps {
   incidents: Incident[];
 }
@@ -160,10 +158,8 @@ interface StabilityMatrixChartsProps {
 const StabilityMatrixCharts: React.FC<StabilityMatrixChartsProps> = ({ incidents }) => {
   const [activeChartTab, setActiveChartTab] = useState<'trends' | 'regional'>('trends');
 
-  // Compute dynamic trends
   const trendData = useMemo(() => {
     if (!incidents || incidents.length === 0) {
-      // Elegant high-command mock fallback trend
       return [
         { date: '06/24', 'Kinetic friction': 2, 'Severity Index': 4 },
         { date: '06/25', 'Kinetic friction': 4, 'Severity Index': 9 },
@@ -178,58 +174,55 @@ const StabilityMatrixCharts: React.FC<StabilityMatrixChartsProps> = ({ incidents
     const groups: { [key: string]: { date: string; 'Kinetic friction': number; 'Severity Index': number } } = {};
     incidents.forEach(incident => {
       const rawDate = incident.date || new Date().toISOString().split('T')[0];
-      const d = rawDate.split('-').slice(1).join('/'); // MM/DD format
-      if (!groups[d]) {
-        groups[d] = { date: d, 'Kinetic friction': 0, 'Severity Index': 0 };
+      const shortDate = rawDate.split('-').slice(1).join('/');
+      if (!groups[shortDate]) {
+        groups[shortDate] = { date: shortDate, 'Kinetic friction': 0, 'Severity Index': 0 };
       }
-      groups[d]['Kinetic friction'] += 1;
-      let score = 1;
-      if (incident.severity === 'CRITICAL') score = 5;
-      else if (incident.severity === 'HIGH') score = 3;
-      else if (incident.severity === 'MEDIUM') score = 2;
-      groups[d]['Severity Index'] += score;
+      groups[shortDate]['Kinetic friction'] += 1;
+      const weight = incident.severity === 'CRITICAL' ? 4 : incident.severity === 'HIGH' ? 3 : incident.severity === 'MEDIUM' ? 2 : 1;
+      groups[shortDate]['Severity Index'] += weight + (incident.fatalities || 0);
     });
 
-    return Object.values(groups)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-8);
+    const sorted = Object.values(groups).sort((a, b) => a.date.localeCompare(b.date));
+    return sorted.slice(-7);
   }, [incidents]);
 
-  // Compute dynamic regional stability
   const regionalData = useMemo(() => {
-    const regions = [
-      { region: 'NORTH: KARAMOJA', 'Stability Score': 100, 'Incident Load': 0 },
-      { region: 'EAST: ELGON', 'Stability Score': 100, 'Incident Load': 0 },
-      { region: 'WEST: ALBERTINE', 'Stability Score': 100, 'Incident Load': 0 },
-      { region: 'SOUTH: VICTORIA', 'Stability Score': 100, 'Incident Load': 0 },
+    const baseRegions = [
+      { region: 'NORTH: KARAMOJA', 'Stability Score': 31, 'Incident Load': 68 },
+      { region: 'EAST: ELGON', 'Stability Score': 72, 'Incident Load': 28 },
+      { region: 'WEST: ALBERTINE', 'Stability Score': 89, 'Incident Load': 14 },
+      { region: 'SOUTH: VICTORIA', 'Stability Score': 58, 'Incident Load': 42 },
     ];
 
-    incidents.forEach(incident => {
-      const loc = (incident.location || '').toLowerCase();
-      let index = 3; // default South/Victoria
-      if (loc.includes('karamoja') || loc.includes('gulu') || loc.includes('north')) index = 0;
-      else if (loc.includes('elgon') || loc.includes('mbale') || loc.includes('east')) index = 1;
-      else if (loc.includes('albertine') || loc.includes('kasese') || loc.includes('west')) index = 2;
+    if (!incidents || incidents.length === 0) return baseRegions;
 
-      regions[index]['Incident Load'] += 1;
-      let deduct = 10;
-      if (incident.severity === 'CRITICAL') deduct = 30;
-      else if (incident.severity === 'HIGH') deduct = 20;
-      else if (incident.severity === 'MEDIUM') deduct = 12;
-      regions[index]['Stability Score'] = Math.max(15, regions[index]['Stability Score'] - deduct);
+    const counts = { NORTH: 0, EAST: 0, WEST: 0, SOUTH: 0 };
+    incidents.forEach(inc => {
+      const loc = (inc.location || '').toLowerCase();
+      if (loc.includes('gulu') || loc.includes('karamoja') || loc.includes('lira') || loc.includes('arua') || loc.includes('north')) counts.NORTH += 8;
+      else if (loc.includes('mbale') || loc.includes('jinja') || loc.includes('tororo') || loc.includes('east')) counts.EAST += 8;
+      else if (loc.includes('kasese') || loc.includes('mbarara') || loc.includes('hoima') || loc.includes('west')) counts.WEST += 8;
+      else counts.SOUTH += 5;
     });
 
-    return regions;
+    return [
+      { region: 'NORTH: KARAMOJA', 'Stability Score': Math.max(15, 75 - counts.NORTH), 'Incident Load': Math.min(95, 25 + counts.NORTH) },
+      { region: 'EAST: ELGON', 'Stability Score': Math.max(20, 82 - counts.EAST), 'Incident Load': Math.min(95, 18 + counts.EAST) },
+      { region: 'WEST: ALBERTINE', 'Stability Score': Math.max(25, 90 - counts.WEST), 'Incident Load': Math.min(95, 12 + counts.WEST) },
+      { region: 'SOUTH: VICTORIA', 'Stability Score': Math.max(20, 78 - counts.SOUTH), 'Incident Load': Math.min(95, 22 + counts.SOUTH) },
+    ];
   }, [incidents]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-kampala-obsidian border border-white/10 p-3 rounded text-[10px] font-mono shadow-2xl">
-          <p className="text-crested-gold font-bold mb-1 uppercase tracking-wider">{label}</p>
-          {payload.map((p: any, i: number) => (
-            <p key={i} style={{ color: p.color || '#D4AF37' }} className="uppercase leading-tight mt-0.5">
-              {p.name}: <span className="font-bold">{p.value}</span>
+        <div className="bg-bg-elevated border border-border-subtle p-3 rounded-lg text-xs font-mono shadow-lg">
+          <p className="text-text-primary font-semibold mb-1.5">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }} className="flex justify-between gap-4 py-0.5">
+              <span>{entry.name}:</span>
+              <span className="font-semibold tabular-nums">{entry.value}</span>
             </p>
           ))}
         </div>
@@ -239,82 +232,94 @@ const StabilityMatrixCharts: React.FC<StabilityMatrixChartsProps> = ({ incidents
   };
 
   return (
-    <div className="stacked-precision-card p-4 bg-gradient-to-br from-lake-victoria to-kampala-obsidian border border-white/5 space-y-4">
-      {/* Tab Selectors */}
-      <div className="flex gap-2 bg-black/45 p-1 rounded border border-white/5">
-        <button
-          onClick={() => setActiveChartTab('trends')}
-          className={`flex-1 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${
-            activeChartTab === 'trends' ? 'bg-crested-gold text-lake-victoria font-bold' : 'text-crane-grey hover:text-pearl-africa font-medium'
-          }`}
-        >
-          Kinetic Incident Trends
-        </button>
-        <button
-          onClick={() => setActiveChartTab('regional')}
-          className={`flex-1 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${
-            activeChartTab === 'regional' ? 'bg-crested-gold text-lake-victoria font-bold' : 'text-crane-grey hover:text-pearl-africa font-medium'
-          }`}
-        >
-          Regional Stability Matrix
-        </button>
+    <div className="bg-bg-surface border border-border-subtle rounded-xl p-5 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-sm font-semibold text-text-primary">Theater Stability Matrix</h3>
+          <p className="text-xs text-text-secondary">
+            7-day kinetic velocity & regional load distribution
+          </p>
+        </div>
+
+        <div className="flex bg-bg-base p-1 rounded-lg border border-border-subtle self-start">
+          <button
+            onClick={() => setActiveChartTab('trends')}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150 ${
+              activeChartTab === 'trends' ? 'bg-accent text-accent-ink font-semibold' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Velocity
+          </button>
+          <button
+            onClick={() => setActiveChartTab('regional')}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150 ${
+              activeChartTab === 'regional' ? 'bg-accent text-accent-ink font-semibold' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Regional
+          </button>
+        </div>
       </div>
 
-      <div className="h-[200px] w-full font-mono text-[9px]">
+      <div className="h-[220px] w-full font-mono text-[11px]">
         <ResponsiveContainer width="100%" height="100%">
           {activeChartTab === 'trends' ? (
             <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-              <defs>
-                <linearGradient id="frictionGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#C41E3A" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#C41E3A" stopOpacity={0.0} />
-                </linearGradient>
-                <linearGradient id="severityGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
-              <XAxis dataKey="date" stroke="#7A8699" tickLine={false} />
-              <YAxis stroke="#7A8699" tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" stroke="var(--text-secondary)" tickLine={false} />
+              <YAxis stroke="var(--text-secondary)" tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} iconType="circle" />
+              <Legend verticalAlign="top" height={32} iconType="circle" />
               <Area
                 type="monotone"
                 dataKey="Kinetic friction"
-                stroke="#C41E3A"
+                stroke="#D90000"
                 strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#frictionGrad)"
+                fillOpacity={0.08}
+                fill="#D90000"
               />
               <Area
                 type="monotone"
                 dataKey="Severity Index"
-                stroke="#D4AF37"
+                stroke="#FCDC04"
                 strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#severityGrad)"
+                fillOpacity={0.08}
+                fill="#FCDC04"
               />
             </AreaChart>
           ) : (
             <BarChart data={regionalData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
-              <XAxis dataKey="region" stroke="#7A8699" tickFormatter={t => t.split(':')[0]} tickLine={false} />
-              <YAxis stroke="#7A8699" tickLine={false} domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="region" stroke="var(--text-secondary)" tickFormatter={t => t.split(':')[0]} tickLine={false} />
+              <YAxis stroke="var(--text-secondary)" tickLine={false} domain={[0, 100]} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} iconType="square" />
-              <Bar dataKey="Stability Score" fill="#3D6B4F" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="Incident Load" fill="#A0401A" radius={[2, 2, 0, 0]} />
+              <Legend verticalAlign="top" height={32} iconType="square" />
+              <Bar dataKey="Stability Score" fill="#34D399" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Incident Load" fill="#F59E0B" radius={[4, 4, 0, 0]} />
             </BarChart>
           )}
         </ResponsiveContainer>
       </div>
-      <p className="text-[8px] font-mono text-infra-steel uppercase tracking-widest text-center">
-        Telemetry synced from Multi-Domain Sensor Array
-      </p>
     </div>
   );
 };
+
+const NAV_ITEMS = [
+  { icon: MessageSquare, label: 'Intel Chat', view: ViewState.CHAT },
+  { icon: LayoutGrid, label: 'Command Center', view: ViewState.THEATER },
+  { icon: BrainCircuit, label: 'Synthesis Mind', view: ViewState.SYNTHESIS },
+  { icon: Users, label: 'Actor Matrix', view: ViewState.ACTORS },
+  { icon: Activity, label: 'Forensics', view: ViewState.FORENSICS },
+  { icon: HardDrive, label: 'Asset Ledger', view: ViewState.ASSETS },
+  { icon: MapIcon, label: 'Threat Horizon', view: ViewState.MAP },
+];
+
+const RECENT_INTEL_THREADS = [
+  'Karuma Hydroelectric perimeter assessment',
+  'Operation Shujaa Rwenzori sector posture',
+  '2026 PEP coalition loyalty vectors',
+  'Kampala–Entebbe aviation logistics corridor',
+];
 
 export const Dashboard: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.CHAT);
@@ -322,8 +327,11 @@ export const Dashboard: React.FC = () => {
   const [pepProfiles, setPepProfiles] = useState<PEPProfile[]>([]);
   const [assets, setAssets] = useState<StrategicAsset[]>([]);
   const [pdfExportStatus, setPdfExportStatus] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isDensityMenuOpen, setIsDensityMenuOpen] = useState(false);
   
   const dashboardRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleExportDashboardPDF = async () => {
     if (!dashboardRef.current) {
@@ -341,7 +349,7 @@ export const Dashboard: React.FC = () => {
       const canvas = await html2canvas(originalElement, {
         scale: 2, 
         useCORS: true,
-        backgroundColor: '#0B1120', // Matches Lake Victoria background
+        backgroundColor: '#0A0A0B',
         windowWidth: 1280,
       });
       
@@ -376,15 +384,40 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  // Operational States
+  // Operational States (isNightOps = false -> Dark default; true -> Day Briefing light mode toggle or vice versa)
   const [threatLevel, setThreatLevel] = useState(3);
-  const [isNightOps, setIsNightOps] = useState(false);
+  const [isNightOps, setIsNightOps] = useState(false); // When toggled, switches between Night Ops (Dark) and Day Briefing (Light)
   const [density, setDensity] = useState<'Compact' | 'Standard' | 'Briefing'>('Compact');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [dashboardMode, setDashboardMode] = useState<'COMMAND_CENTER' | 'MAP_FOCUS' | 'DATA_MATRIX'>('COMMAND_CENTER');
   const [matrixSearch, setMatrixSearch] = useState('');
+
+  // Sync theme classes on documentElement so portals and modals inherit tokens
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isNightOps) {
+      root.classList.add('day-briefing-active', 'theme-light');
+      root.classList.remove('theme-dark');
+    } else {
+      root.classList.add('theme-dark');
+      root.classList.remove('day-briefing-active', 'theme-light');
+    }
+  }, [isNightOps]);
+
+  // ⌘K / Ctrl+K shortcut for Global Cross-Ledger Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsSearchFocused(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Grid Pillar 1: Map Container & Google Maps Grounding State
   const [mapsQuery, setMapsQuery] = useState('Kampala-Entebbe Strategic Corridor & Aviation Logistics');
@@ -429,8 +462,10 @@ export const Dashboard: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const isDirector = currentUser?.email === 'mugisolo@gmail.com';
 
-  // New features state
+  // Audit, Subscription & Search state
   const [isAuditPanelOpen, setIsAuditPanelOpen] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionState>(() => getInitialSubscriptionState());
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [activeToast, setActiveToast] = useState<Incident | null>(null);
@@ -519,7 +554,6 @@ export const Dashboard: React.FC = () => {
       originalItem: any;
     }[] = [];
 
-    // Filter Assets
     assets.forEach(asset => {
       if (
         asset.name.toLowerCase().includes(queryStr) ||
@@ -531,32 +565,30 @@ export const Dashboard: React.FC = () => {
           id: `asset-${asset.id}`,
           type: 'ASSET',
           title: asset.name,
-          subtitle: `${asset.type} • ${asset.location} (${asset.status})`,
+          subtitle: `${asset.type} · ${asset.location} (${asset.status})`,
           targetView: ViewState.ASSETS,
           originalItem: asset
         });
       }
     });
 
-    // Filter Actors (PEP)
     pepProfiles.forEach(pep => {
       if (
         pep.name.toLowerCase().includes(queryStr) ||
         (pep.party && pep.party.toLowerCase().includes(queryStr)) ||
-        (pep.district && pep.district.toLowerCase().includes(queryStr))
+        (pep.constituency && pep.constituency.toLowerCase().includes(queryStr))
       ) {
         results.push({
           id: `pep-${pep.id}`,
           type: 'ACTOR',
           title: pep.name,
-          subtitle: `${pep.party || 'Independent'} • District: ${pep.district || 'N/A'}`,
+          subtitle: `${pep.party || 'Independent'} · ${pep.constituency || 'National'}`,
           targetView: ViewState.ACTORS,
           originalItem: pep
         });
       }
     });
 
-    // Filter Incidents
     incidents.forEach(incident => {
       if (
         incident.location.toLowerCase().includes(queryStr) ||
@@ -568,7 +600,7 @@ export const Dashboard: React.FC = () => {
           id: `incident-${incident.id}`,
           type: 'INCIDENT',
           title: `${incident.type} in ${incident.location}`,
-          subtitle: `${incident.severity} • ${incident.description.substring(0, 45)}...`,
+          subtitle: `${incident.severity} · ${incident.description.substring(0, 45)}...`,
           targetView: ViewState.THEATER,
           originalItem: incident
         });
@@ -601,19 +633,17 @@ export const Dashboard: React.FC = () => {
       initialIncidentIdsRef.current.add(latestNew.id);
       
       logOperationalAction(
-        `AUTOMATED SURVEILLANCE: Real-time high-severity incident detected in ${latestNew.location}. Type: ${latestNew.type}. [ALERT BANNER DEPLOYED]`,
+        `AUTOMATED SURVEILLANCE: Real-time high-severity incident detected in ${latestNew.location}. Type: ${latestNew.type}.`,
         'SECURITY',
         'SYS_MONITOR'
       );
     }
   }, [incidents]);
 
-  // Track interface transitions in the audit log
   useEffect(() => {
     logOperationalAction(`Active interface module switched to ${view}`, 'SYSTEM');
   }, [view]);
 
-  // Track threat level manual updates
   useEffect(() => {
     logOperationalAction(`Threat level updated to LEVEL ${threatLevel}`, 'SECURITY');
   }, [threatLevel]);
@@ -622,30 +652,32 @@ export const Dashboard: React.FC = () => {
     const unsubIncidents = subscribeToIncidents(setIncidents);
     const unsubPep = subscribeToParliamentary(setPepProfiles);
     const unsubAssets = subscribeToAssets(setAssets);
+    const unsubSub = subscribeToSubscriptionChanges(setSubscription);
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
     });
 
-    // Boot Sequence Timer
-    const timer = setTimeout(() => setIsBooting(false), 1200);
+    const timer = setTimeout(() => setIsBooting(false), 600);
 
     return () => { 
       unsubIncidents(); 
       unsubPep(); 
       unsubAssets(); 
+      unsubSub();
       unsubAuth();
       clearTimeout(timer);
     };
   }, []);
 
-  // Threat Banner Logic
+  const subMeta = useMemo(() => getSubscriptionStatusMeta(subscription), [subscription]);
+
   const getThreatMeta = (level: number) => {
     switch(level) {
-      case 5: return { color: 'bg-brotherhood-crimson', label: 'LEVEL 5 — CRITICAL', icon: ShieldAlert, shape: 'pentagon' };
-      case 4: return { color: 'bg-rift-rust', label: 'LEVEL 4 — HIGH', icon: AlertTriangle, shape: 'diamond' };
-      case 3: return { color: 'bg-nile-amber', label: 'LEVEL 3 — ELEVATED', icon: Zap, shape: 'triangle' };
-      case 2: return { color: 'bg-nile-amber', label: 'LEVEL 2 — GUARDED', icon: Activity, shape: 'circle-outline' };
-      default: return { color: 'bg-savanna-sage', label: 'LEVEL 1 — NORMAL', icon: CheckCircle2, shape: 'circle-outline' };
+      case 5: return { color: 'bg-danger text-white', label: 'LEVEL 5 — CRITICAL', icon: ShieldAlert };
+      case 4: return { color: 'bg-warning text-accent-ink', label: 'LEVEL 4 — HIGH', icon: AlertTriangle };
+      case 3: return { color: 'bg-accent text-accent-ink', label: 'LEVEL 3 — ELEVATED', icon: Zap };
+      case 2: return { color: 'bg-info text-accent-ink', label: 'LEVEL 2 — GUARDED', icon: Activity };
+      default: return { color: 'bg-success text-accent-ink', label: 'LEVEL 1 — NORMAL', icon: CheckCircle2 };
     }
   };
 
@@ -665,27 +697,50 @@ export const Dashboard: React.FC = () => {
     });
   }, [incidents, incidentFeedFilter, incidentFeedSearch]);
 
+  const getSeverityBadgeStyle = (severity?: string) => {
+    switch (severity) {
+      case 'CRITICAL':
+        return { dot: 'bg-danger', pill: 'bg-danger/15 text-danger border-danger/30' };
+      case 'HIGH':
+        return { dot: 'bg-warning', pill: 'bg-warning/15 text-warning border-warning/30' };
+      case 'MEDIUM':
+        return { dot: 'bg-info', pill: 'bg-info/15 text-info border-info/30' };
+      default:
+        return { dot: 'bg-text-secondary', pill: 'bg-bg-elevated text-text-secondary border-border-subtle' };
+    }
+  };
+
+  const currentViewTitle = useMemo(() => {
+    const found = NAV_ITEMS.find(n => n.view === view);
+    return found ? found.label : 'Command Center';
+  }, [view]);
+
   const renderView = () => {
     return (
       <AnimatePresence mode="wait">
         <motion.div
           key={view}
-          initial={{ opacity: 0, scale: 0.99 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.01 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
           className="w-full h-full"
         >
           {(() => {
             switch (view) {
               case ViewState.CHAT:
                 return (
-                  <div className="h-[calc(100dvh-9.5rem)] min-h-[560px] w-full flex flex-col border border-white/10 rounded-sm overflow-hidden shadow-2xl bg-kampala-obsidian">
+                  <div className="h-[calc(100dvh-5.5rem)] min-h-[560px] w-full flex flex-col bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
                     <Chatbot isInline />
                   </div>
                 );
               case ViewState.MAP:
-                return <SecurityMap incidents={incidents} onNavigate={setView} fullScreen />;
+                return (
+                  <div className="space-y-6">
+                    <ThreatHorizon incidents={incidents} />
+                    <SecurityMap incidents={incidents} onUpdateIncidents={setIncidents} onNavigate={setView} fullScreen />
+                  </div>
+                );
               case ViewState.ACTORS:
                 return <PEPAnalytics peps={pepProfiles} />;
               case ViewState.FORENSICS:
@@ -707,43 +762,36 @@ export const Dashboard: React.FC = () => {
                   );
                 });
 
-                const criticalCount = incidents.filter(i => i.severity === 'CRITICAL' || i.severity === 'HIGH').length;
-                const operationalAssetsCount = assets.filter(a => a.status === 'OPERATIONAL').length;
+                const criticalCount = incidents.filter(i => i.severity === 'CRITICAL').length;
+                const highCount = incidents.filter(i => i.severity === 'HIGH').length;
+                const operationalAssetsCount = assets.filter(a => a.status === 'Operational' || a.status === 'Secured').length;
 
                 return (
-                  <div className="space-y-6 pt-1">
-                    {/* Top Control Strip & Mode Switcher */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-kampala-obsidian/80 p-3 border border-white/10 rounded-sm backdrop-blur-md shadow-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-8 bg-crested-gold rounded-xs shadow-[0_0_12px_rgba(212,175,55,0.4)]" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h2 className="text-pearl-africa font-black tracking-tight text-sm md:text-base uppercase leading-none">
-                              National Strategic Command Grid
-                            </h2>
-                            <span className="px-1.5 py-0.5 text-[8px] font-mono font-black uppercase bg-crested-gold/15 text-crested-gold border border-crested-gold/30 rounded">
-                              ALPHA_CORE // LIVE
-                            </span>
-                          </div>
-                          <p className="text-[9px] font-mono text-crane-grey uppercase tracking-widest mt-1">
-                            Integrated Geospatial Map • Real-Time Kinetic Feed • Strategic Synthesis Intelligence
-                          </p>
-                        </div>
+                  <div className="space-y-6">
+                    {/* Sub-header & Segmented Layout Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="font-display text-xl font-bold text-text-primary tracking-tight">
+                          National Strategic Command Grid
+                        </h2>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          Geospatial surveillance · Real-time kinetic feed · Synthesis intelligence
+                        </p>
                       </div>
 
-                      <div className="flex bg-lake-victoria/90 p-1 border border-white/10 rounded-sm self-start md:self-auto">
+                      <div className="flex bg-bg-surface p-1 border border-border-subtle rounded-xl self-start sm:self-auto">
                         <button
                           onClick={() => {
                             setDashboardMode('COMMAND_CENTER');
                             logOperationalAction('Dashboard switched to Command Center layout', 'SYSTEM');
                           }}
-                          className={`px-3 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-mono font-black uppercase tracking-wider transition-all rounded-sm ${
+                          className={`px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors duration-150 rounded-lg whitespace-nowrap ${
                             dashboardMode === 'COMMAND_CENTER' 
-                              ? 'bg-crested-gold text-lake-victoria font-extrabold shadow-md' 
-                              : 'text-crane-grey hover:text-pearl-africa'
+                              ? 'bg-accent text-accent-ink font-semibold' 
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
-                          <LayoutGrid size={12} />
+                          <LayoutGrid size={13} />
                           <span>Command Grid</span>
                         </button>
                         <button
@@ -751,13 +799,13 @@ export const Dashboard: React.FC = () => {
                             setDashboardMode('MAP_FOCUS');
                             logOperationalAction('Dashboard switched to Map Focus layout', 'SYSTEM');
                           }}
-                          className={`px-3 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-mono font-black uppercase tracking-wider transition-all rounded-sm ${
+                          className={`px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors duration-150 rounded-lg whitespace-nowrap ${
                             dashboardMode === 'MAP_FOCUS' 
-                              ? 'bg-crested-gold text-lake-victoria font-extrabold shadow-md' 
-                              : 'text-crane-grey hover:text-pearl-africa'
+                              ? 'bg-accent text-accent-ink font-semibold' 
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
-                          <MapIcon size={12} />
+                          <MapIcon size={13} />
                           <span>Map Focus</span>
                         </button>
                         <button
@@ -765,13 +813,13 @@ export const Dashboard: React.FC = () => {
                             setDashboardMode('DATA_MATRIX');
                             logOperationalAction('Dashboard switched to Data Matrix layout', 'SYSTEM');
                           }}
-                          className={`px-3 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-mono font-black uppercase tracking-wider transition-all rounded-sm ${
+                          className={`px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors duration-150 rounded-lg whitespace-nowrap ${
                             dashboardMode === 'DATA_MATRIX' 
-                              ? 'bg-crested-gold text-lake-victoria font-extrabold shadow-md' 
-                              : 'text-crane-grey hover:text-pearl-africa'
+                              ? 'bg-accent text-accent-ink font-semibold' 
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
-                          <Activity size={12} />
+                          <Activity size={13} />
                           <span>Data Matrix</span>
                         </button>
                       </div>
@@ -779,98 +827,91 @@ export const Dashboard: React.FC = () => {
 
                     {dashboardMode === 'COMMAND_CENTER' && (
                       <div className="space-y-6 animate-fade-in">
-                        {/* Executive Telemetry KPI Row */}
+                        {/* Clean 4-Metric KPI Row */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div className="stacked-precision-card p-4 bg-kampala-obsidian/90 border border-white/10 border-l-2 border-l-brotherhood-crimson">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crane-grey">Active Incidents</span>
-                              <ShieldAlert size={14} className="text-brotherhood-crimson" />
+                          <div className="bg-bg-surface border border-border-subtle rounded-xl p-4">
+                            <div className="flex items-center justify-between text-xs text-text-secondary">
+                              <span>Active Incidents</span>
+                              <ShieldAlert size={14} className={criticalCount > 0 ? 'text-danger' : 'text-text-secondary'} />
                             </div>
                             <div className="mt-2 flex items-baseline justify-between">
-                              <span className="text-2xl font-black font-mono text-pearl-africa">{incidents.length}</span>
-                              <span className="text-[9px] font-mono font-bold text-brotherhood-crimson">
-                                {criticalCount} CRITICAL/HIGH
+                              <span className="font-display text-2xl font-bold tabular-nums text-text-primary">{incidents.length}</span>
+                              <span className="text-xs font-mono text-text-secondary">
+                                {criticalCount > 0 ? <span className="text-danger">{criticalCount} critical</span> : `${highCount} high`}
                               </span>
                             </div>
                           </div>
 
-                          <div className="stacked-precision-card p-4 bg-kampala-obsidian/90 border border-white/10 border-l-2 border-l-crested-gold">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crane-grey">Strategic Assets</span>
-                              <HardDrive size={14} className="text-crested-gold" />
+                          <div className="bg-bg-surface border border-border-subtle rounded-xl p-4">
+                            <div className="flex items-center justify-between text-xs text-text-secondary">
+                              <span>Strategic Assets</span>
+                              <HardDrive size={14} className="text-text-secondary" />
                             </div>
                             <div className="mt-2 flex items-baseline justify-between">
-                              <span className="text-2xl font-black font-mono text-pearl-africa">{assets.length}</span>
-                              <span className="text-[9px] font-mono font-bold text-savanna-sage">
-                                {operationalAssetsCount} NOMINAL
+                              <span className="font-display text-2xl font-bold tabular-nums text-text-primary">{assets.length}</span>
+                              <span className="text-xs font-mono text-success">
+                                {operationalAssetsCount} nominal
                               </span>
                             </div>
                           </div>
 
-                          <div className="stacked-precision-card p-4 bg-kampala-obsidian/90 border border-white/10 border-l-2 border-l-intel-blue">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crane-grey">PEP Dossiers</span>
-                              <Users size={14} className="text-intel-blue" />
+                          <div className="bg-bg-surface border border-border-subtle rounded-xl p-4">
+                            <div className="flex items-center justify-between text-xs text-text-secondary">
+                              <span>PEP Dossiers</span>
+                              <Users size={14} className="text-text-secondary" />
                             </div>
                             <div className="mt-2 flex items-baseline justify-between">
-                              <span className="text-2xl font-black font-mono text-pearl-africa">{pepProfiles.length}</span>
-                              <span className="text-[9px] font-mono font-bold text-intel-blue">
-                                TIER 1-5 TRACKED
+                              <span className="font-display text-2xl font-bold tabular-nums text-text-primary">{pepProfiles.length}</span>
+                              <span className="text-xs font-mono text-text-secondary">
+                                [TIER 1–5]
                               </span>
                             </div>
                           </div>
 
-                          <div className="stacked-precision-card p-4 bg-kampala-obsidian/90 border border-white/10 border-l-2 border-l-savanna-sage">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crane-grey">Sovereign Stability</span>
-                              <TrendingUp size={14} className="text-savanna-sage" />
+                          <div className="bg-bg-surface border border-border-subtle rounded-xl p-4">
+                            <div className="flex items-center justify-between text-xs text-text-secondary">
+                              <span>Sovereign Stability</span>
+                              <TrendingUp size={14} className="text-success" />
                             </div>
                             <div className="mt-2 flex items-baseline justify-between">
-                              <span className="text-2xl font-black font-mono text-savanna-sage">84.2%</span>
-                              <span className="text-[9px] font-mono font-bold text-crested-gold">
-                                {threat.label.split('—')[0]}
+                              <span className="font-display text-2xl font-bold tabular-nums text-success">84.2%</span>
+                              <span className="text-xs font-mono text-text-secondary">
+                                L{threatLevel} posture
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* PRIMARY 12-COLUMN TACTICAL GRID: MAP CONTAINER (7 COLS) + REAL-TIME INCIDENT FEED (5 COLS) */}
+                        {/* PRIMARY MAP-FOCUS SPLIT: LARGE MAP (62% / 7 COLS) + RIGHT INCIDENT RAIL (38% / 5 COLS) */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                          {/* PILLAR 1: INTERACTIVE MAP CONTAINER + GOOGLE MAPS GROUNDING */}
-                          <section className="lg:col-span-7 flex flex-col bg-kampala-obsidian border border-white/10 rounded-sm overflow-hidden shadow-2xl">
-                            {/* Section Header */}
-                            <div className="p-4 border-b border-white/10 bg-lake-victoria/60 flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className="p-1.5 rounded bg-crested-gold/15 border border-crested-gold/30 text-crested-gold">
-                                  <MapIcon size={15} />
-                                </div>
-                                <div>
-                                  <h3 className="text-xs font-black uppercase tracking-wider text-pearl-africa">
-                                    Geospatial Surveillance & Tactical Map Container
-                                  </h3>
-                                  <p className="text-[9px] font-mono text-crane-grey uppercase tracking-widest">
-                                    Live Kinetic Coordinates & Google Maps Grounding (`gemini-3.8-flash`)
-                                  </p>
-                                </div>
+                          {/* PILLAR 1: GEOSPATIAL MAP CONTAINER */}
+                          <section className="lg:col-span-7 flex flex-col bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
+                            <div className="px-5 py-4 border-b border-border-subtle flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h3 className="font-display text-sm font-semibold text-text-primary">
+                                  Geospatial Surveillance & Corridor Reconnaissance
+                                </h3>
+                                <p className="text-xs text-text-secondary">
+                                  Live kinetic coordinates & Google Maps grounding (<span className="font-mono">gemini-3.8-flash</span>)
+                                </p>
                               </div>
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => setView(ViewState.ASSETS)}
-                                  className="px-2.5 py-1 bg-white/5 hover:bg-crested-gold/20 border border-white/10 hover:border-crested-gold/40 rounded text-[9px] font-mono font-bold text-pearl-africa hover:text-crested-gold transition-all"
+                                  className="px-3 py-1.5 bg-bg-elevated hover:border-accent/50 border border-border-subtle rounded-lg text-xs font-medium text-text-primary transition-colors duration-150"
                                 >
-                                  ASSET LEDGER MAP
+                                  Asset Map
                                 </button>
                                 <button
                                   onClick={() => setView(ViewState.MAP)}
-                                  className="px-2.5 py-1 bg-crested-gold/15 hover:bg-crested-gold text-crested-gold hover:text-lake-victoria border border-crested-gold/30 rounded text-[9px] font-mono font-black transition-all"
+                                  className="px-3 py-1.5 bg-accent text-accent-ink rounded-lg text-xs font-semibold transition-opacity duration-150 hover:opacity-90"
                                 >
-                                  FULLSCREEN THEATER
+                                  Fullscreen
                                 </button>
                               </div>
                             </div>
 
-                            {/* Interactive SecurityMap Viewport */}
-                            <div className="p-3 flex-grow">
+                            <div className="p-4 flex-grow">
                               <SecurityMap
                                 incidents={incidents}
                                 onUpdateIncidents={setIncidents}
@@ -878,12 +919,12 @@ export const Dashboard: React.FC = () => {
                               />
                             </div>
 
-                            {/* Google Maps Grounding Corridor Reconnaissance Bar */}
-                            <div className="p-4 border-t border-white/10 bg-lake-victoria/90 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crested-gold flex items-center gap-1.5">
-                                  <Compass size={12} />
-                                  Google Maps Grounding Reconnaissance
+                            {/* Google Maps Grounding Bar */}
+                            <div className="p-4 border-t border-border-subtle bg-bg-base/50 space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
+                                  <Compass size={13} className="text-accent" />
+                                  <span>Maps Grounding Recon</span>
                                 </span>
                                 <div className="flex items-center gap-1.5 overflow-x-auto">
                                   {[
@@ -897,7 +938,7 @@ export const Dashboard: React.FC = () => {
                                         setMapsQuery(preset);
                                         handleRunMapsGrounding(preset);
                                       }}
-                                      className="px-2 py-0.5 bg-white/5 hover:bg-crested-gold/15 border border-white/10 hover:border-crested-gold/30 rounded text-[8px] font-mono text-crane-grey hover:text-pearl-africa whitespace-nowrap transition-all"
+                                      className="px-2.5 py-1 bg-bg-surface hover:bg-bg-elevated border border-border-subtle rounded-full text-[11px] text-text-secondary hover:text-text-primary whitespace-nowrap transition-colors duration-150"
                                     >
                                       {preset}
                                     </button>
@@ -911,40 +952,37 @@ export const Dashboard: React.FC = () => {
                                   value={mapsQuery}
                                   onChange={(e) => setMapsQuery(e.target.value)}
                                   onKeyDown={(e) => e.key === 'Enter' && handleRunMapsGrounding()}
-                                  placeholder="Query Ugandan sector, corridor, or facility via Google Maps Grounding..."
-                                  className="flex-1 bg-kampala-obsidian border border-white/10 rounded px-3 py-1.5 text-[10px] font-mono text-pearl-africa placeholder:text-crane-grey focus:outline-none focus:border-crested-gold/50"
+                                  placeholder="Query Ugandan sector, corridor, or facility via Google Maps..."
+                                  className="flex-1 bg-bg-surface border border-border-subtle rounded-xl px-3.5 py-2 text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
                                 />
                                 <button
                                   onClick={() => handleRunMapsGrounding()}
                                   disabled={mapsIntelLoading}
-                                  className="px-3 py-1.5 bg-crested-gold hover:bg-watch-gold text-lake-victoria font-mono text-[9px] font-black uppercase tracking-wider rounded flex items-center gap-1.5 transition-all disabled:opacity-50"
+                                  className="px-4 py-2 bg-accent hover:opacity-90 text-accent-ink text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-opacity duration-150 disabled:opacity-50"
                                 >
-                                  {mapsIntelLoading ? <Loader2 size={12} className="animate-spin" /> : <Compass size={12} />}
-                                  <span>RECON</span>
+                                  {mapsIntelLoading ? <Loader2 size={13} className="animate-spin" /> : <Compass size={13} />}
+                                  <span>Recon</span>
                                 </button>
                               </div>
 
                               {mapsIntelResult && (
-                                <div className="p-3 bg-kampala-obsidian border border-crested-gold/25 rounded space-y-2 text-[11px] text-pearl-africa">
-                                  <div className="prose prose-invert max-w-none text-[11px] leading-relaxed font-sans">
+                                <div className="p-4 bg-bg-surface border border-border-subtle rounded-xl space-y-2.5 text-xs text-text-primary report-justified">
+                                  <div className="leading-relaxed text-justify markdown-body">
                                     <Markdown>{mapsIntelResult.text}</Markdown>
                                   </div>
                                   {mapsIntelResult.links && mapsIntelResult.links.length > 0 && (
-                                    <div className="pt-2 border-t border-white/10 flex flex-wrap gap-2">
-                                      <span className="text-[8px] font-mono uppercase text-crane-grey self-center">
-                                        Verified Maps Grounding Links:
-                                      </span>
+                                    <div className="pt-2 border-t border-border-subtle flex flex-wrap gap-2">
                                       {mapsIntelResult.links.map((link, idx) => (
                                         <a
                                           key={idx}
                                           href={link.uri}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-intel-blue/15 hover:bg-intel-blue/25 text-intel-blue border border-intel-blue/30 rounded text-[9px] font-mono font-bold transition-all"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-bg-elevated hover:border-accent/50 text-text-primary border border-border-subtle rounded-lg text-[11px] font-mono transition-colors"
                                         >
-                                          <MapPin size={10} />
+                                          <MapPin size={11} className="text-accent" />
                                           <span>{link.title}</span>
-                                          <ExternalLink size={9} />
+                                          <ExternalLink size={10} className="text-text-secondary" />
                                         </a>
                                       ))}
                                     </div>
@@ -954,78 +992,73 @@ export const Dashboard: React.FC = () => {
                             </div>
                           </section>
 
-                          {/* PILLAR 2: REAL-TIME INCIDENT FEED + GOOGLE SEARCH GROUNDING */}
-                          <section className="lg:col-span-5 flex flex-col bg-kampala-obsidian border border-white/10 rounded-sm overflow-hidden shadow-2xl">
-                            {/* Incident Feed Header */}
-                            <div className="p-4 border-b border-white/10 bg-lake-victoria/60 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className="p-1.5 rounded bg-brotherhood-crimson/15 border border-brotherhood-crimson/30 text-brotherhood-crimson">
-                                  <Radio size={15} className="animate-pulse" />
-                                </div>
-                                <div>
-                                  <h3 className="text-xs font-black uppercase tracking-wider text-pearl-africa">
-                                    Real-Time Kinetic Incident Feed
-                                  </h3>
-                                  <p className="text-[9px] font-mono text-crane-grey uppercase tracking-widest">
-                                    Firestore Live Stream ({filteredRealtimeIncidents.length}) & OSINT Search Grounding
-                                  </p>
-                                </div>
+                          {/* PILLAR 2: RIGHT RAIL — REAL-TIME KINETIC INCIDENT FEED */}
+                          <section className="lg:col-span-5 flex flex-col bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
+                            <div className="px-5 py-4 border-b border-border-subtle flex items-center justify-between gap-2">
+                              <div>
+                                <h3 className="font-display text-sm font-semibold text-text-primary">
+                                  Incident Feed
+                                </h3>
+                                <p className="text-xs text-text-secondary font-mono">
+                                  {filteredRealtimeIncidents.length} active records · Live Firestore stream
+                                </p>
                               </div>
 
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleRunOsintSweep()}
                                   disabled={osintLoading}
-                                  className="px-2.5 py-1 bg-intel-blue/15 hover:bg-intel-blue/25 text-intel-blue border border-intel-blue/30 rounded text-[9px] font-mono font-black uppercase flex items-center gap-1 transition-all"
+                                  className="px-3 py-1.5 bg-bg-elevated hover:border-accent/50 text-text-primary border border-border-subtle rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors duration-150"
                                   title="Run Live Google Search Grounding OSINT Sweep"
                                 >
-                                  {osintLoading ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
-                                  <span>OSINT SWEEP</span>
+                                  {osintLoading ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
+                                  <span>OSINT Sweep</span>
                                 </button>
                                 <button
                                   onClick={() => setIsLoggingIncident(!isLoggingIncident)}
-                                  className="px-2.5 py-1 bg-brotherhood-crimson hover:bg-brotherhood-crimson/80 text-white rounded text-[9px] font-mono font-black uppercase flex items-center gap-1 transition-all"
+                                  className="px-3 py-1.5 bg-accent hover:opacity-90 text-accent-ink rounded-lg text-xs font-semibold flex items-center gap-1 transition-opacity duration-150"
                                 >
-                                  <Plus size={11} />
-                                  <span>LOG</span>
+                                  <Plus size={13} />
+                                  <span>Log</span>
                                 </button>
                               </div>
                             </div>
 
-                            {/* Filter & Search Bar */}
-                            <div className="p-3 bg-lake-victoria/40 border-b border-white/5 space-y-2">
+                            {/* Severity Filter & Search Bar */}
+                            <div className="p-3.5 border-b border-border-subtle space-y-2.5 bg-bg-base/40">
                               <div className="flex items-center gap-1 overflow-x-auto">
-                                {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
-                                  <button
-                                    key={sev}
-                                    onClick={() => setIncidentFeedFilter(sev)}
-                                    className={`px-2 py-1 rounded text-[8px] font-mono font-black uppercase tracking-wider transition-all ${
-                                      incidentFeedFilter === sev
-                                        ? sev === 'CRITICAL'
-                                          ? 'bg-brotherhood-crimson text-white'
-                                          : sev === 'HIGH'
-                                          ? 'bg-rift-rust text-white'
-                                          : 'bg-crested-gold text-lake-victoria'
-                                        : 'bg-white/5 text-crane-grey hover:text-pearl-africa'
-                                    }`}
-                                  >
-                                    {sev}
-                                  </button>
-                                ))}
+                                {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => {
+                                  const active = incidentFeedFilter === sev;
+                                  return (
+                                    <button
+                                      key={sev}
+                                      onClick={() => setIncidentFeedFilter(sev)}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-medium transition-colors duration-150 ${
+                                        active
+                                          ? sev === 'CRITICAL'
+                                            ? 'bg-danger text-white font-semibold'
+                                            : 'bg-accent text-accent-ink font-semibold'
+                                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                                      }`}
+                                    >
+                                      {sev}
+                                    </button>
+                                  );
+                                })}
                               </div>
                               <div className="relative">
-                                <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crane-grey" />
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                                 <input
                                   type="text"
                                   value={incidentFeedSearch}
                                   onChange={(e) => setIncidentFeedSearch(e.target.value)}
-                                  placeholder="Filter real-time incident stream by location, sector, or vector..."
-                                  className="w-full pl-7 pr-3 py-1.5 bg-kampala-obsidian border border-white/10 rounded text-[10px] font-mono text-pearl-africa placeholder:text-crane-grey focus:outline-none focus:border-crested-gold/40"
+                                  placeholder="Filter incidents by location, type, or description..."
+                                  className="w-full pl-8 pr-3 py-1.5 bg-bg-surface border border-border-subtle rounded-xl text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
                                 />
                               </div>
                             </div>
 
-                            {/* Inline Log New Incident Form (Firestore Persisted) */}
+                            {/* Inline Log New Incident Form */}
                             <AnimatePresence>
                               {isLoggingIncident && (
                                 <motion.form
@@ -1033,28 +1066,28 @@ export const Dashboard: React.FC = () => {
                                   animate={{ height: 'auto', opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
                                   onSubmit={handleCreateRealtimeIncident}
-                                  className="p-3 bg-lake-victoria border-b border-brotherhood-crimson/30 space-y-2.5 overflow-hidden"
+                                  className="p-4 bg-bg-elevated border-b border-border-subtle space-y-3 overflow-hidden"
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-mono font-black uppercase text-brotherhood-crimson">
-                                      Transmit New Field Incident to Firestore
+                                    <span className="text-xs font-semibold text-text-primary">
+                                      Log Field Incident
                                     </span>
                                     <button
                                       type="button"
                                       onClick={() => setIsLoggingIncident(false)}
-                                      className="text-crane-grey hover:text-white"
+                                      className="text-text-secondary hover:text-text-primary"
                                     >
-                                      <X size={13} />
+                                      <X size={14} />
                                     </button>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <div className="grid grid-cols-2 gap-2.5">
                                     <input
                                       type="text"
                                       required
                                       placeholder="Location (e.g. Kasese, Gulu)"
                                       value={newIncidentDraft.location}
                                       onChange={(e) => setNewIncidentDraft({ ...newIncidentDraft, location: e.target.value })}
-                                      className="bg-kampala-obsidian border border-white/10 rounded px-2.5 py-1.5 text-[10px] font-mono text-pearl-africa"
+                                      className="bg-bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-text-primary"
                                     />
                                     <select
                                       value={newIncidentDraft.severity}
@@ -1064,7 +1097,7 @@ export const Dashboard: React.FC = () => {
                                           severity: e.target.value as NonNullable<Incident['severity']>,
                                         })
                                       }
-                                      className="bg-kampala-obsidian border border-white/10 rounded px-2.5 py-1.5 text-[10px] font-mono text-pearl-africa"
+                                      className="bg-bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-text-primary"
                                     >
                                       <option value="CRITICAL">CRITICAL</option>
                                       <option value="HIGH">HIGH</option>
@@ -1075,16 +1108,16 @@ export const Dashboard: React.FC = () => {
                                   <textarea
                                     required
                                     rows={2}
-                                    placeholder="SITREP tactical description..."
+                                    placeholder="Incident SITREP description..."
                                     value={newIncidentDraft.description}
                                     onChange={(e) => setNewIncidentDraft({ ...newIncidentDraft, description: e.target.value })}
-                                    className="w-full bg-kampala-obsidian border border-white/10 rounded px-2.5 py-1.5 text-[10px] font-mono text-pearl-africa"
+                                    className="w-full bg-bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-text-primary"
                                   />
                                   <button
                                     type="submit"
-                                    className="w-full py-1.5 bg-brotherhood-crimson hover:bg-brotherhood-crimson/90 text-white font-mono text-[9px] font-black uppercase tracking-wider rounded transition-all"
+                                    className="w-full py-2 bg-accent hover:opacity-90 text-accent-ink text-xs font-semibold rounded-lg transition-opacity"
                                   >
-                                    COMMIT INCIDENT TO FIRESTORE LEDGER
+                                    Save Incident to Firestore
                                   </button>
                                 </motion.form>
                               )}
@@ -1092,33 +1125,33 @@ export const Dashboard: React.FC = () => {
 
                             {/* Google Search Grounding OSINT Result Box */}
                             {osintResult && (
-                              <div className="p-3 bg-intel-blue/10 border-b border-intel-blue/30 space-y-2">
+                              <div className="p-4 bg-bg-elevated border-b border-border-subtle space-y-2.5">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[8px] font-mono font-black uppercase tracking-widest text-intel-blue flex items-center gap-1">
-                                    <Globe size={10} />
-                                    Google Search Grounding OSINT Intelligence
+                                  <span className="text-xs font-medium text-info flex items-center gap-1.5">
+                                    <Globe size={12} />
+                                    <span>OSINT Search Grounding</span>
                                   </span>
                                   <button
                                     onClick={() => setOsintResult(null)}
-                                    className="text-crane-grey hover:text-white"
+                                    className="text-text-secondary hover:text-text-primary"
                                   >
-                                    <X size={12} />
+                                    <X size={13} />
                                   </button>
                                 </div>
-                                <div className="text-[11px] text-pearl-africa leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+                                <div className="text-xs text-text-primary leading-relaxed max-h-40 overflow-y-auto text-justify report-justified markdown-body">
                                   <Markdown>{osintResult.text}</Markdown>
                                 </div>
                                 {osintResult.sources && osintResult.sources.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/10">
+                                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border-subtle">
                                     {osintResult.sources.map((src, i) => (
                                       <a
                                         key={i}
                                         href={src.uri}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-lake-victoria text-intel-blue border border-intel-blue/30 rounded text-[8px] font-mono truncate max-w-[220px]"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-bg-surface text-text-secondary hover:text-text-primary border border-border-subtle rounded text-[11px] font-mono truncate max-w-[220px]"
                                       >
-                                        <ExternalLink size={9} />
+                                        <ExternalLink size={10} />
                                         <span className="truncate">{src.title}</span>
                                       </a>
                                     ))}
@@ -1127,200 +1160,177 @@ export const Dashboard: React.FC = () => {
                               </div>
                             )}
 
-                            {/* Scrollable Real-time Incident Feed */}
-                            <div className="flex-grow overflow-y-auto max-h-[540px] divide-y divide-white/5 custom-scrollbar">
+                            {/* Clean Incident List Rows */}
+                            <div className="flex-grow overflow-y-auto max-h-[540px] divide-y divide-border-subtle">
                               {filteredRealtimeIncidents.length === 0 ? (
-                                <div className="p-8 text-center font-mono text-[10px] text-crane-grey uppercase tracking-widest">
-                                  No active kinetic incidents match current filter parameters.
+                                <div className="p-8 text-center text-xs text-text-secondary">
+                                  No incidents match the current filter.
                                 </div>
                               ) : (
-                                filteredRealtimeIncidents.map((inc) => (
-                                  <div
-                                    key={inc.id}
-                                    className="p-3.5 hover:bg-white/[0.03] transition-all flex flex-col gap-1.5 group"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-black uppercase tracking-wider border ${
-                                            inc.severity === 'CRITICAL'
-                                              ? 'bg-brotherhood-crimson/15 text-brotherhood-crimson border-brotherhood-crimson/30'
-                                              : inc.severity === 'HIGH'
-                                              ? 'bg-rift-rust/15 text-rift-rust border-rift-rust/30'
-                                              : inc.severity === 'MEDIUM'
-                                              ? 'bg-nile-amber/15 text-nile-amber border-nile-amber/30'
-                                              : 'bg-intel-blue/15 text-intel-blue border-intel-blue/30'
-                                          }`}
-                                        >
-                                          {inc.severity || 'MEDIUM'}
-                                        </span>
-                                        <span className="font-mono text-[11px] font-black text-pearl-africa">
-                                          {inc.location}
-                                        </span>
+                                filteredRealtimeIncidents.map((inc) => {
+                                  const sevStyle = getSeverityBadgeStyle(inc.severity);
+                                  return (
+                                    <div
+                                      key={inc.id}
+                                      className="px-4 py-3.5 hover:bg-bg-elevated/50 transition-colors duration-150 flex flex-col gap-1.5 group"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className={`w-2 h-2 rounded-full shrink-0 ${sevStyle.dot}`} />
+                                          <span className="font-medium text-xs text-text-primary truncate">
+                                            {inc.location}
+                                          </span>
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${sevStyle.pill}`}>
+                                            {inc.severity || 'MEDIUM'}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="font-mono text-[11px] text-text-secondary tabular-nums">
+                                            {inc.date}
+                                          </span>
+                                          <button
+                                            onClick={() => {
+                                              setIncidents(prev => prev.filter(i => i.id !== inc.id));
+                                              deleteIncidentFromDb(inc.id);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-danger transition-opacity"
+                                            title="Delete incident"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-mono text-[9px] text-crane-grey">
-                                          {inc.date}
-                                        </span>
-                                        <button
-                                          onClick={() => {
-                                            setIncidents(prev => prev.filter(i => i.id !== inc.id));
-                                            deleteIncidentFromDb(inc.id);
-                                          }}
-                                          className="opacity-0 group-hover:opacity-100 text-crane-grey hover:text-brotherhood-crimson transition-opacity"
-                                          title="Archive incident"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
+
+                                      <p className="text-xs text-text-secondary leading-relaxed pl-4 text-justify report-justified">
+                                        {inc.description}
+                                      </p>
+
+                                      <div className="flex items-center justify-between pl-4 pt-1 text-[11px] font-mono text-text-secondary">
+                                        <span>{inc.type}</span>
+                                        <div className="flex items-center gap-3">
+                                          {inc.fatalities > 0 && (
+                                            <span className="text-danger font-medium">
+                                              Casualties: {inc.fatalities}
+                                            </span>
+                                          )}
+                                          {inc.injuries > 0 && (
+                                            <span className="text-warning font-medium">
+                                              Injuries: {inc.injuries}
+                                            </span>
+                                          )}
+                                          <button
+                                            onClick={() => {
+                                              setMapsQuery(`${inc.location}, Uganda security perimeter`);
+                                              handleRunMapsGrounding(`${inc.location}, Uganda security perimeter`);
+                                            }}
+                                            className="text-text-primary hover:text-accent flex items-center gap-1 transition-colors"
+                                          >
+                                            <Compass size={11} />
+                                            <span>Locate</span>
+                                          </button>
+                                        </div>
                                       </div>
                                     </div>
-
-                                    <p className="text-[11px] text-pearl-africa/85 leading-relaxed">
-                                      {inc.description}
-                                    </p>
-
-                                    <div className="flex items-center justify-between pt-1 text-[9px] font-mono text-crane-grey">
-                                      <span className="uppercase tracking-wider text-crested-gold/90">
-                                        VECTOR: {inc.type}
-                                      </span>
-                                      <div className="flex items-center gap-3">
-                                        {inc.fatalities > 0 && (
-                                          <span className="text-brotherhood-crimson font-bold">
-                                            CASUALTIES: {inc.fatalities}
-                                          </span>
-                                        )}
-                                        {inc.injuries > 0 && (
-                                          <span className="text-nile-amber font-bold">
-                                            INJURIES: {inc.injuries}
-                                          </span>
-                                        )}
-                                        <button
-                                          onClick={() => {
-                                            setMapsQuery(`${inc.location}, Uganda security perimeter`);
-                                            handleRunMapsGrounding(`${inc.location}, Uganda security perimeter`);
-                                          }}
-                                          className="text-intel-blue hover:underline flex items-center gap-0.5"
-                                        >
-                                          <Compass size={10} />
-                                          <span>LOCATE</span>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
+                                  );
+                                })
                               )}
                             </div>
                           </section>
                         </div>
 
-                        {/* SECONDARY 12-COLUMN STRATEGIC INTELLIGENCE PANEL */}
-                        <section className="bg-kampala-obsidian border border-white/10 rounded-sm overflow-hidden shadow-2xl">
-                          {/* Panel Header */}
-                          <div className="p-4 border-b border-white/10 bg-lake-victoria/70 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded bg-crested-gold/15 border border-crested-gold/30 text-crested-gold">
-                                <BrainCircuit size={18} />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="text-sm font-black uppercase tracking-wider text-pearl-africa">
-                                    Strategic Intelligence & Synthesis Command Panel
-                                  </h3>
-                                  <span className="px-1.5 py-0.5 text-[8px] font-mono font-bold bg-savanna-sage/15 text-savanna-sage border border-savanna-sage/30 rounded">
-                                    MULTI-DOMAIN AI ACTIVE
-                                  </span>
-                                </div>
-                                <p className="text-[9px] font-mono text-crane-grey uppercase tracking-widest mt-0.5">
-                                  Presidential Statecraft • Synthesis Mind Briefing • Multi-Turn Analyst Terminal
-                                </p>
-                              </div>
+                        {/* SECONDARY STRATEGIC INTELLIGENCE PANEL */}
+                        <section className="bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
+                          <div className="px-5 py-4 border-b border-border-subtle flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-display text-sm font-semibold text-text-primary">
+                                Strategic Synthesis & Theater Stability
+                              </h3>
+                              <p className="text-xs text-text-secondary">
+                                Automated executive briefing · Regional stability matrix · Predictive horizon
+                              </p>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={handleGenerateStrategicBriefing}
                                 disabled={briefingLoading}
-                                className="px-3 py-1.5 bg-crested-gold hover:bg-watch-gold text-lake-victoria font-mono text-[9px] font-black uppercase tracking-wider rounded flex items-center gap-1.5 shadow-[0_0_15px_rgba(212,175,55,0.25)] transition-all disabled:opacity-50"
+                                className="px-3.5 py-1.5 bg-accent hover:opacity-90 text-accent-ink text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-opacity disabled:opacity-50"
                               >
-                                {briefingLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                <span>GENERATE SYNTHESIS BRIEFING</span>
+                                {briefingLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                <span>Generate Briefing</span>
                               </button>
                               <button
                                 onClick={() => setView(ViewState.CHAT)}
-                                className="px-3 py-1.5 bg-intel-blue/20 hover:bg-intel-blue text-intel-blue hover:text-white border border-intel-blue/40 font-mono text-[9px] font-black uppercase tracking-wider rounded flex items-center gap-1.5 transition-all"
+                                className="px-3 py-1.5 bg-bg-elevated hover:border-accent/50 text-text-primary border border-border-subtle text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
                               >
-                                <MessageSquare size={12} />
-                                <span>INTELLIGENCE COMMAND PAGE</span>
+                                <MessageSquare size={13} />
+                                <span>Intel Chat</span>
                               </button>
                               <button
                                 onClick={() => setView(ViewState.SYNTHESIS)}
-                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-pearl-africa font-mono text-[9px] font-bold uppercase tracking-wider rounded transition-all"
+                                className="px-3 py-1.5 bg-bg-elevated hover:border-accent/50 text-text-primary border border-border-subtle text-xs font-medium rounded-lg transition-colors"
                               >
-                                FULL SYNTHESIS MODULE
+                                Full Synthesis
                               </button>
                             </div>
                           </div>
 
-                          {/* Full-Width 12-Column Strategic Intelligence Panel Content */}
                           <div className="p-5 space-y-6">
                             {strategicBriefing ? (
-                              <div className="p-4 bg-lake-victoria/90 border border-crested-gold/30 rounded-sm space-y-4">
-                                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                              <div className="p-5 bg-bg-base border border-border-subtle rounded-xl space-y-4 report-justified">
+                                <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                                   <div>
-                                    <span className="text-[8px] font-mono font-black uppercase tracking-widest text-crested-gold">
-                                      HIGH-COMMAND SYNTHESIS BRIEFING // DIRECTOR MUGISOLO
+                                    <span className="text-[11px] font-mono text-text-secondary">
+                                      [TIER 5 — FORENSIC] · Executive Synthesis
                                     </span>
-                                    <h4 className="text-sm font-black uppercase text-pearl-africa mt-0.5">
+                                    <h4 className="font-display text-base font-bold text-text-primary mt-0.5">
                                       {strategicBriefing.title}
                                     </h4>
                                   </div>
-                                  <span className="px-2 py-0.5 bg-crested-gold/15 text-crested-gold border border-crested-gold/30 rounded text-[8px] font-mono font-black">
-                                    TIER 5 VERIFIED
-                                  </span>
                                 </div>
 
-                                <p className="text-xs text-pearl-africa/90 leading-relaxed font-sans">
+                                <p className="text-sm text-text-primary leading-relaxed text-justify">
                                   {strategicBriefing.threatAssessment}
                                 </p>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                                  <div className="p-2.5 bg-kampala-obsidian border border-brotherhood-crimson/25 rounded">
-                                    <span className="text-[8px] font-mono font-black uppercase text-brotherhood-crimson">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                                  <div className="p-4 bg-bg-surface border border-border-subtle rounded-xl">
+                                    <span className="text-xs font-mono font-medium text-danger">
                                       Kinetic Hotspots
                                     </span>
-                                    <ul className="mt-1.5 space-y-1 text-[10px] text-pearl-africa/85">
+                                    <ul className="mt-2 space-y-1.5 text-xs text-text-secondary">
                                       {(strategicBriefing.kineticHotspots || []).map((h, i) => (
-                                        <li key={i} className="flex items-start gap-1.5">
-                                          <span className="text-brotherhood-crimson">•</span>
-                                          <span>{h}</span>
+                                        <li key={i} className="flex items-start gap-2">
+                                          <span className="text-danger">·</span>
+                                          <span className="text-justify flex-1">{h}</span>
                                         </li>
                                       ))}
                                     </ul>
                                   </div>
 
-                                  <div className="p-2.5 bg-kampala-obsidian border border-nile-amber/25 rounded">
-                                    <span className="text-[8px] font-mono font-black uppercase text-nile-amber">
+                                  <div className="p-4 bg-bg-surface border border-border-subtle rounded-xl">
+                                    <span className="text-xs font-mono font-medium text-warning">
                                       Asset Exposures
                                     </span>
-                                    <ul className="mt-1.5 space-y-1 text-[10px] text-pearl-africa/85">
+                                    <ul className="mt-2 space-y-1.5 text-xs text-text-secondary">
                                       {(strategicBriefing.infrastructureVulnerabilities || []).map((v, i) => (
-                                        <li key={i} className="flex items-start gap-1.5">
-                                          <span className="text-nile-amber">•</span>
-                                          <span>{v}</span>
+                                        <li key={i} className="flex items-start gap-2">
+                                          <span className="text-warning">·</span>
+                                          <span className="text-justify flex-1">{v}</span>
                                         </li>
                                       ))}
                                     </ul>
                                   </div>
 
-                                  <div className="p-2.5 bg-kampala-obsidian border border-savanna-sage/25 rounded">
-                                    <span className="text-[8px] font-mono font-black uppercase text-savanna-sage">
-                                      SFC / UPDF Directives
+                                  <div className="p-4 bg-bg-surface border border-border-subtle rounded-xl">
+                                    <span className="text-xs font-mono font-medium text-success">
+                                      Command Directives
                                     </span>
-                                    <ul className="mt-1.5 space-y-1 text-[10px] text-pearl-africa/85">
+                                    <ul className="mt-2 space-y-1.5 text-xs text-text-secondary">
                                       {(strategicBriefing.strategicRecoms || []).map((r, i) => (
-                                        <li key={i} className="flex items-start gap-1.5">
-                                          <span className="text-savanna-sage">•</span>
-                                          <span>{r}</span>
+                                        <li key={i} className="flex items-start gap-2">
+                                          <span className="text-success">·</span>
+                                          <span className="text-justify flex-1">{r}</span>
                                         </li>
                                       ))}
                                     </ul>
@@ -1328,34 +1338,34 @@ export const Dashboard: React.FC = () => {
                                 </div>
                               </div>
                             ) : (
-                              <div className="p-4 bg-lake-victoria/60 border border-white/10 rounded-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                  <span className="text-[9px] font-mono font-black uppercase tracking-widest text-crested-gold">
-                                    SYNTHESIS MIND STANDBY // READY FOR CONVERGENCE
+                              <div className="p-4 bg-bg-base border border-border-subtle rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                  <span className="text-xs font-mono text-text-secondary">
+                                    Synthesis Mind Standby
                                   </span>
-                                  <p className="text-xs text-pearl-africa/80">
-                                    Synthesize {incidents.length} kinetic incidents, {assets.length} strategic infrastructure nodes, and {pepProfiles.length} political actors into an executive briefing.
+                                  <p className="text-xs text-text-primary mt-0.5">
+                                    Synthesize {incidents.length} incidents, {assets.length} infrastructure nodes, and {pepProfiles.length} political actors into an executive briefing.
                                   </p>
                                 </div>
                                 <button
                                   onClick={handleGenerateStrategicBriefing}
                                   disabled={briefingLoading}
-                                  className="px-3 py-2 bg-crested-gold/15 hover:bg-crested-gold text-crested-gold hover:text-lake-victoria border border-crested-gold/30 rounded text-[9px] font-mono font-black uppercase tracking-wider shrink-0 transition-all"
+                                  className="px-3.5 py-2 bg-bg-elevated hover:border-accent text-text-primary border border-border-subtle rounded-lg text-xs font-medium shrink-0 transition-colors"
                                 >
-                                  {briefingLoading ? 'SYNTHESIZING...' : 'RUN BRIEFING'}
+                                  {briefingLoading ? 'Synthesizing...' : 'Run Briefing'}
                                 </button>
                               </div>
                             )}
 
-                            {/* Regional Stability Grid + Recharts Matrix + Threat Horizon */}
+                            {/* Regional Stability + Recharts Matrix + Threat Horizon */}
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                              <div className="lg:col-span-4 space-y-2">
+                              <div className="lg:col-span-4 space-y-2.5">
                                 <div className="flex items-center justify-between px-1">
-                                  <span className="text-[10px] font-mono font-black uppercase tracking-wider text-pearl-africa">
-                                    Theater Stability Stacks
+                                  <span className="font-display text-xs font-semibold text-text-primary">
+                                    Regional Stability Index
                                   </span>
-                                  <span className="text-[8px] font-mono text-crested-gold uppercase">
-                                    Ground Truth V4.2
+                                  <span className="text-[11px] font-mono text-text-secondary">
+                                    Live Telemetry
                                   </span>
                                 </div>
                                 <StabilityStack region="NORTH: KARAMOJA" score={31} trend="down" />
@@ -1364,7 +1374,7 @@ export const Dashboard: React.FC = () => {
                                 <StabilityStack region="SOUTH: VICTORIA" score={58} trend="down" />
                               </div>
 
-                              <div className="lg:col-span-4 space-y-3">
+                              <div className="lg:col-span-4">
                                 <StabilityMatrixCharts incidents={incidents} />
                               </div>
 
@@ -1379,88 +1389,75 @@ export const Dashboard: React.FC = () => {
 
                     {dashboardMode === 'MAP_FOCUS' && (
                       <div className="animate-fade-in w-full h-full">
-                        <SecurityMap incidents={incidents} onNavigate={setView} fullScreen />
+                        <SecurityMap incidents={incidents} onUpdateIncidents={setIncidents} onNavigate={setView} fullScreen />
                       </div>
                     )}
 
                     {dashboardMode === 'DATA_MATRIX' && (
                       <div className="space-y-6 animate-fade-in">
-                        {/* Graphical Analytics */}
-                        <section className="space-y-4">
-                          <div>
-                            <h2 className="text-pearl-africa font-black tracking-tighter text-md uppercase leading-none">Graph Intelligence Matrix</h2>
-                            <p className="text-[9px] font-mono text-infra-steel uppercase tracking-widest mt-1">Multi-Domain Time Series Models</p>
-                          </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <ThreatHorizon incidents={incidents} />
                           <StabilityMatrixCharts incidents={incidents} />
-                        </section>
+                        </div>
 
-                        {/* Tabular Registry Grid */}
-                        <section className="space-y-4">
-                          <div className="flex items-center justify-between">
+                        <section className="bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
+                          <div className="p-5 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
-                              <h2 className="text-pearl-africa font-black tracking-tighter text-md uppercase leading-none">Tabular Registry Matrix</h2>
-                              <p className="text-[9px] font-mono text-infra-steel uppercase tracking-widest mt-1">SITREP Database Records ({filteredIncidentsForMatrix.length})</p>
+                              <h3 className="font-display text-sm font-semibold text-text-primary">Incident Registry Table</h3>
+                              <p className="text-xs font-mono text-text-secondary">{filteredIncidentsForMatrix.length} records</p>
+                            </div>
+                            <div className="relative w-full sm:w-72">
+                              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                              <input
+                                type="text"
+                                placeholder="Filter registry records..."
+                                value={matrixSearch}
+                                onChange={(e) => setMatrixSearch(e.target.value)}
+                                className="w-full pl-8 pr-3 py-1.5 bg-bg-base border border-border-subtle rounded-xl text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
+                              />
                             </div>
                           </div>
 
-                          {/* Search Filter for Ledger */}
-                          <div className="flex items-center relative">
-                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crane-grey" />
-                            <input
-                              type="text"
-                              placeholder="Filter registry records..."
-                              value={matrixSearch}
-                              onChange={(e) => setMatrixSearch(e.target.value)}
-                              className="w-full pl-8 pr-3 py-2 bg-kampala-obsidian/80 border border-white/10 rounded font-mono text-[9px] text-pearl-africa placeholder:text-crane-grey focus:outline-none focus:border-crested-gold/40 transition-all"
-                            />
-                          </div>
-
-                          {/* The Data Grid */}
-                          <div className="stacked-precision-card overflow-hidden bg-gradient-to-br from-lake-victoria to-kampala-obsidian border border-white/5 font-mono">
-                            <div className="overflow-x-auto custom-scrollbar">
-                              <table className="w-full text-left border-collapse text-[9px]">
-                                <thead>
-                                  <tr className="border-b border-white/5 bg-black/40 text-crane-grey font-bold uppercase tracking-wider text-[8px]">
-                                    <th className="p-3">Date</th>
-                                    <th className="p-3">Location</th>
-                                    <th className="p-3">Type</th>
-                                    <th className="p-3">Severity</th>
-                                    <th className="p-3 text-right">Fatalities</th>
-                                    <th className="p-3 text-right">Injuries</th>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-border-subtle bg-bg-base/60 text-text-secondary font-mono text-[11px]">
+                                  <th className="py-3 px-4">Date</th>
+                                  <th className="py-3 px-4">Location</th>
+                                  <th className="py-3 px-4">Type</th>
+                                  <th className="py-3 px-4">Severity</th>
+                                  <th className="py-3 px-4 text-right">Fatalities</th>
+                                  <th className="py-3 px-4 text-right">Injuries</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border-subtle">
+                                {filteredIncidentsForMatrix.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={6} className="p-8 text-center text-text-secondary text-xs">
+                                      No registry entries match the query parameters.
+                                    </td>
                                   </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                  {filteredIncidentsForMatrix.length === 0 ? (
-                                    <tr>
-                                      <td colSpan={6} className="p-8 text-center text-crane-grey uppercase tracking-widest text-[9px]">
-                                        No registry entries match the query parameters.
-                                      </td>
-                                    </tr>
-                                  ) : (
-                                    filteredIncidentsForMatrix.map((inc) => (
-                                      <tr key={inc.id} className="hover:bg-white/5 transition-all">
-                                        <td className="p-3 whitespace-nowrap text-infra-steel font-bold">{inc.date.split('-').slice(1).join('/')}</td>
-                                        <td className="p-3 font-bold text-pearl-africa max-w-[120px] truncate">{inc.location}</td>
-                                        <td className="p-3 text-crane-grey">{inc.type}</td>
-                                        <td className="p-3">
-                                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                            inc.severity === 'CRITICAL' ? 'text-brotherhood-crimson bg-brotherhood-crimson/10 border border-brotherhood-crimson/20' :
-                                            inc.severity === 'HIGH' ? 'text-rift-rust bg-rift-rust/10 border border-rift-rust/20' :
-                                            inc.severity === 'MEDIUM' ? 'text-nile-amber bg-nile-amber/10 border border-nile-amber/20' :
-                                            'text-intel-blue bg-intel-blue/10 border border-intel-blue/20'
-                                          }`}>
+                                ) : (
+                                  filteredIncidentsForMatrix.map((inc) => {
+                                    const sevStyle = getSeverityBadgeStyle(inc.severity);
+                                    return (
+                                      <tr key={inc.id} className="hover:bg-bg-elevated/40 transition-colors">
+                                        <td className="py-3 px-4 whitespace-nowrap font-mono text-text-secondary tabular-nums">{inc.date}</td>
+                                        <td className="py-3 px-4 font-medium text-text-primary">{inc.location}</td>
+                                        <td className="py-3 px-4 text-text-secondary">{inc.type}</td>
+                                        <td className="py-3 px-4">
+                                          <span className={`px-2 py-0.5 rounded text-[11px] font-mono border ${sevStyle.pill}`}>
                                             {inc.severity}
                                           </span>
                                         </td>
-                                        <td className={`p-3 text-right font-black ${inc.fatalities > 0 ? 'text-brotherhood-crimson' : 'text-crane-grey'}`}>{inc.fatalities}</td>
-                                        <td className={`p-3 text-right font-black ${inc.injuries > 0 ? 'text-nile-amber' : 'text-crane-grey'}`}>{inc.injuries}</td>
+                                        <td className={`py-3 px-4 text-right font-mono tabular-nums ${inc.fatalities > 0 ? 'text-danger font-semibold' : 'text-text-secondary'}`}>{inc.fatalities}</td>
+                                        <td className={`py-3 px-4 text-right font-mono tabular-nums ${inc.injuries > 0 ? 'text-warning font-semibold' : 'text-text-secondary'}`}>{inc.injuries}</td>
                                       </tr>
-                                    ))
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
                           </div>
                         </section>
                       </div>
@@ -1475,491 +1472,716 @@ export const Dashboard: React.FC = () => {
     );
   };
 
-  const isChatView = view === ViewState.CHAT;
-
   if (isBooting) {
     return (
-      <div className="min-h-screen bg-kampala-obsidian flex flex-col items-center justify-center p-8 font-mono overflow-hidden">
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(113, 128, 150, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(113, 128, 150, 0.1) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="w-full max-w-xs space-y-6 relative z-10">
-          <div className="flex flex-col items-center gap-4">
-             <motion.div 
-               animate={{ rotate: 360 }}
-               transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-               className="p-4 bg-intel-blue/10 rounded-full border border-intel-blue/20"
-             >
-                <BrainCircuit className="text-intel-blue" size={48} />
-             </motion.div>
-             <div className="text-center">
-                <h1 className="text-xl font-black tracking-tighter uppercase mb-1">U-ISMS CORE</h1>
-                <p className="text-[10px] text-infra-steel uppercase tracking-[0.3em]">Operational Readiness Protocol</p>
-             </div>
+      <div className="min-h-screen bg-bg-base flex flex-col items-center justify-center p-8 font-mono">
+        <div className="w-full max-w-xs space-y-5 text-center">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-bg-surface border border-border-subtle flex items-center justify-center text-accent">
+            <BrainCircuit size={24} />
           </div>
-          <div className="space-y-1">
-             <div className="flex justify-between text-[10px]">
-                <span className="text-infra-steel">DECRYPTING_LDGR</span>
-                <span className="text-stable-sage">OK</span>
-             </div>
-             <div className="flex justify-between text-[10px]">
-                <span className="text-infra-steel">SYNCING_THEATER_NODES</span>
-                <span className="text-stable-sage">OK</span>
-             </div>
-             <div className="flex justify-between text-[10px]">
-                <span className="text-infra-steel">AI_ANALYST_STABILIZING</span>
-                <span className="text-watch-gold">PENDING</span>
-             </div>
+          <div>
+            <h1 className="font-display text-lg font-bold text-text-primary tracking-tight">U-ISMS</h1>
+            <p className="text-xs text-text-secondary mt-1">Synchronizing Strategic Intelligence Ledger...</p>
           </div>
-          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-             <motion.div 
-               initial={{ x: '-100%' }}
-               animate={{ x: '0%' }}
-               transition={{ duration: 2.4, ease: 'easeInOut' }}
-               className="h-full w-full bg-intel-blue"
-             />
+          <div className="h-1 w-full bg-bg-surface rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ x: '-100%' }}
+              animate={{ x: '0%' }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="h-full w-full bg-accent"
+            />
           </div>
-          <p className="text-[8px] text-center text-infra-steel uppercase tracking-widest animate-pulse">Initializing encrypted secure link...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-[100dvh] bg-lake-victoria flex flex-col ${isNightOps ? 'night-ops-active shadow-[inset_0_0_100px_rgba(255,0,0,0.1)]' : ''}`}>
-      {/* 1. Tactical Threat Banner */}
-      <div 
-        onClick={() => setIsAlertOpen(true)}
-        className={`h-1 w-full relative z-[60] ${threat.color} ${threatLevel >= 4 ? 'animate-pulse' : ''}`} 
-      />
-      
-      {/* 2. Top Header */}
-      <header className="h-16 px-6 border-b border-white/5 flex items-center justify-between sticky top-0 bg-lake-victoria/80 backdrop-blur-xl z-40">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsDrawerOpen(true)}
-            className="p-3 -ml-3 text-pearl-africa hover:bg-white/5 rounded-full transition-colors active:scale-90"
-          >
-            <Menu size={20} className="text-crested-gold" />
-          </button>
-          <div className="flex flex-col">
-            <h1 className="text-sm font-black tracking-tighter uppercase leading-none glitch-text" data-text="U-ISMS">U-ISMS</h1>
-            <div className="flex items-center gap-1 mt-1">
-              <div className={`w-2 h-2 rounded-full ${threat.color} shadow-[0_0_8px_var(--color-crested-gold)] scale-75`} />
-              <span className="text-[8px] font-mono font-bold text-crane-grey tracking-widest uppercase">Theater: Alpha_Core</span>
-            </div>
-          </div>
-        </div>
+    <div className={`min-h-[100dvh] bg-bg-base text-text-primary flex flex-col ${isNightOps ? 'day-briefing-active theme-light' : 'theme-dark'}`}>
+      {/* Thin 3-Color Uganda National Identity Ribbon (Black / Yellow / Red, 3px) */}
+      <div className="h-[3px] w-full flex shrink-0 z-[60]">
+        <div className="flex-1 bg-[#0A0A0B]" />
+        <div className="flex-1 bg-[#FCDC04]" />
+        <div className="flex-1 bg-[#D90000]" />
+      </div>
 
-        {/* Global Search Bar (filters assets, actors/PEP, and incidents simultaneously) */}
-        <div className="flex-grow max-w-[120px] xs:max-w-[180px] sm:max-w-xs mx-3 relative">
-          <div className="relative w-full">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-crane-grey" />
-            <input
-              type="text"
-              placeholder="Search assets, actors..."
-              value={globalSearch}
-              onChange={(e) => {
-                setGlobalSearch(e.target.value);
-                setIsSearchFocused(true);
-              }}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-              className="w-full pl-7 pr-3 py-1 bg-kampala-obsidian/80 border border-white/10 rounded font-mono text-[10px] text-pearl-africa placeholder:text-crane-grey focus:outline-none focus:border-crested-gold/40 transition-all"
-            />
-            
-            {/* Search results dropdown */}
-            <AnimatePresence>
-              {isSearchFocused && globalSearch.trim().length > 0 && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-kampala-obsidian border border-white/10 rounded shadow-2xl z-50 p-2 space-y-1 divide-y divide-white/5"
-                >
-                  <div className="text-[8px] font-mono font-bold text-crane-grey uppercase tracking-widest p-1">
-                    Matching Records ({searchResults.length})
-                  </div>
-                  {searchResults.length === 0 ? (
-                    <div className="text-[10px] font-mono text-crane-grey p-2 text-center">
-                      No matching records found.
-                    </div>
-                  ) : (
-                    searchResults.map(result => (
-                      <button
-                        key={result.id}
-                        onMouseDown={() => {
-                          setView(result.targetView);
-                          logOperationalAction(`Search selection triggered navigation: ${result.title} [${result.type}]`, 'USER_QUERY');
-                          setGlobalSearch('');
-                        }}
-                        className="w-full text-left p-1.5 hover:bg-white/5 transition-all flex flex-col gap-0.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-[10px] font-bold text-pearl-africa truncate">{result.title}</span>
-                          <span className={`text-[7px] font-mono font-black px-1 rounded uppercase tracking-wider ${
-                            result.type === 'ASSET' ? 'text-intel-blue bg-intel-blue/10 border border-intel-blue/20' :
-                            result.type === 'ACTOR' ? 'text-crested-gold bg-crested-gold/10 border border-crested-gold/20' :
-                            'text-brotherhood-crimson bg-brotherhood-crimson/10 border border-brotherhood-crimson/20'
-                          }`}>
-                            {result.type}
-                          </span>
-                        </div>
-                        <span className="text-[8px] font-mono text-crane-grey truncate">{result.subtitle}</span>
-                      </button>
-                    ))
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Operational Audit Log Toggle */}
-          <button 
-            onClick={() => setIsAuditPanelOpen(true)}
-            className="p-1.5 border border-white/10 rounded-sm bg-white/5 text-crane-grey hover:text-crested-gold hover:border-crested-gold/30 transition-all flex items-center gap-1 active:scale-95"
-            title="Operational Audit Log"
-          >
-            <Terminal size={14} />
-            <span className="text-[8px] font-mono font-black uppercase tracking-wider hidden sm:inline">Audit Log</span>
-          </button>
-          
-          <button 
-            onClick={handleExportDashboardPDF}
-            className="p-1.5 border border-white/10 rounded-sm bg-white/5 text-crane-grey hover:text-crested-gold hover:border-crested-gold/30 transition-all flex items-center gap-1 active:scale-95"
-            title="Export Strategic PDF"
-          >
-            <Download size={14} />
-            <span className="text-[8px] font-mono font-black uppercase tracking-wider hidden sm:inline">Export PDF</span>
-          </button>
-          <button 
-            onClick={() => setThreatLevel(prev => prev >= 5 ? 1 : prev + 1)}
-            className="p-2 text-crane-grey hover:text-white transition-colors relative"
-          >
-            <Bell size={18} />
-            {threatLevel >= 4 && <span className="absolute top-1 right-1 w-2 h-2 bg-brotherhood-crimson rounded-full animate-ping" />}
-          </button>
-          {currentUser ? (
-            <div className="relative">
+      <div className="flex-1 flex min-h-0">
+        {/* 1. LEFT SIDEBAR (Collapsible: 260px expanded / 68px icon-only collapsed) */}
+        <aside
+          className={`hidden md:flex flex-col shrink-0 bg-bg-surface border-r border-border-subtle transition-all duration-150 select-none ${
+            isSidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
+          }`}
+        >
+          {/* Sidebar Header: Wordmark + Collapse Toggle */}
+          <div className="h-14 px-4 border-b border-border-subtle flex items-center justify-between">
+            {!isSidebarCollapsed && (
               <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className={`h-8 px-2 rounded border transition-all flex items-center gap-1.5 active:scale-95 ${
-                  isDirector 
-                    ? 'bg-crested-gold/15 border-crested-gold/40 text-crested-gold hover:bg-crested-gold/25 shadow-[0_0_10px_rgba(212,175,55,0.2)]'
-                    : 'bg-kampala-obsidian border-white/10 text-pearl-africa hover:border-white/20'
-                }`}
-                title={isDirector ? "Comrade Mugisolo — Director of Strategic Oversight" : (currentUser.email || "User Profile")}
+                onClick={() => setView(ViewState.CHAT)}
+                className="flex items-center gap-2.5 text-left focus:outline-none"
               >
-                {currentUser.photoURL ? (
-                  <img src={currentUser.photoURL} alt="Avatar" className="w-5 h-5 rounded-full object-cover border border-white/20" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-crested-gold/20 flex items-center justify-center font-mono text-[9px] font-black text-crested-gold">
-                    {isDirector ? 'MS' : (currentUser.email?.[0]?.toUpperCase() || 'U')}
-                  </div>
-                )}
-                <span className="font-mono text-[9px] font-black uppercase tracking-wider hidden sm:inline">
-                  {isDirector ? 'MUGISOLO' : (currentUser.displayName?.split(' ')[0] || 'LIAISON')}
+                <div className="w-7 h-7 rounded-lg bg-accent text-accent-ink font-display font-bold text-xs flex items-center justify-center">
+                  UG
+                </div>
+                <span className="font-display font-bold text-base tracking-tight text-text-primary">
+                  U-ISMS
                 </span>
-                {isDirector && <ShieldCheck size={12} className="text-crested-gold shrink-0" />}
+              </button>
+            )}
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className={`p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors duration-150 ${
+                isSidebarCollapsed ? 'mx-auto' : ''
+              }`}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            </button>
+          </div>
+
+          {/* Primary Vertical Navigation */}
+          <nav className="p-2.5 space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = view === item.view;
+              return (
+                <button
+                  key={item.label}
+                  onClick={() => setView(item.view)}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm transition-colors duration-150 ${
+                    active
+                      ? 'bg-accent text-accent-ink font-semibold'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                  } ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+                >
+                  <Icon size={17} className="shrink-0" />
+                  {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Recent Intelligence Chats (like Kimi/Gemini history) */}
+          {!isSidebarCollapsed && (
+            <div className="px-4 pt-4 pb-2 flex-1 overflow-y-auto">
+              <div className="text-[11px] font-mono text-text-secondary mb-2 px-1">
+                Recent Briefings
+              </div>
+              <div className="space-y-0.5">
+                {RECENT_INTEL_THREADS.map((thread, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setView(ViewState.CHAT)}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors duration-150 flex items-center gap-2 truncate"
+                  >
+                    <Clock size={12} className="shrink-0 opacity-60" />
+                    <span className="truncate">{thread}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sidebar Bottom: Subscription Badge, Theme Toggle, Settings, & User Profile Chip */}
+          <div className="mt-auto p-3 border-t border-border-subtle space-y-2">
+            <button
+              onClick={() => setIsSubscriptionModalOpen(true)}
+              className={`w-full flex items-center gap-2.5 p-2 rounded-xl border transition-colors duration-150 ${
+                subscription.planId === 'FREE_TRIAL'
+                  ? 'bg-accent/10 border-accent/40 text-accent hover:bg-accent/15'
+                  : 'bg-bg-elevated border-border-subtle text-text-primary hover:border-accent/50'
+              } ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}
+              title="Command Clearance & Subscription Tiers (First Week Free)"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <CreditCard size={14} className="text-accent shrink-0" />
+                {!isSidebarCollapsed && (
+                  <span className="text-xs font-semibold truncate">
+                    {subscription.planId === 'FREE_TRIAL'
+                      ? 'First Week Free'
+                      : subscription.planId === 'DAILY'
+                      ? 'Daily Pass ($20)'
+                      : subscription.planId === 'WEEKLY'
+                      ? 'Weekly Tier ($150)'
+                      : 'Monthly Tier ($500)'}
+                  </span>
+                )}
+              </div>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg-surface border border-border-subtle text-text-secondary shrink-0">
+                  {subscription.planId === 'FREE_TRIAL' ? 'TRIAL' : 'ACTIVE'}
+                </span>
+              )}
+            </button>
+
+            <div className={`flex items-center ${isSidebarCollapsed ? 'flex-col gap-2' : 'justify-between gap-2'}`}>
+              <button
+                onClick={() => setIsNightOps(!isNightOps)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-bg-elevated hover:border-accent/50 border border-border-subtle text-xs text-text-secondary hover:text-text-primary transition-colors duration-150"
+                title={isNightOps ? 'Switch to Night Ops (Dark)' : 'Switch to Day Briefing (Light)'}
+              >
+                {isNightOps ? <Moon size={14} /> : <Sun size={14} className="text-accent" />}
+                {!isSidebarCollapsed && <span>{isNightOps ? 'Night Ops' : 'Day Briefing'}</span>}
               </button>
 
-              {/* User Profile & Database Control Dropdown */}
-              <AnimatePresence>
-                {isUserMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-72 bg-kampala-obsidian border border-white/15 rounded-sm shadow-2xl p-4 z-50 space-y-3 divide-y divide-white/10"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-mono text-crane-grey uppercase tracking-widest">Operator Identity</span>
-                        {isDirector ? (
-                          <span className="text-[7px] font-mono font-black text-crested-gold bg-crested-gold/15 px-1.5 py-0.5 rounded border border-crested-gold/30">
-                            DIRECTOR // SFC
-                          </span>
-                        ) : (
-                          <span className="text-[7px] font-mono font-bold text-savanna-sage bg-savanna-sage/10 px-1.5 py-0.5 rounded border border-savanna-sage/20">
-                            AUTHENTICATED
-                          </span>
-                        )}
-                      </div>
-                      <div className="font-mono font-black text-xs text-pearl-africa">
-                        {isDirector ? 'Comrade Mugisolo' : (currentUser.displayName || 'Strategic Officer')}
-                      </div>
-                      <div className="font-mono text-[10px] text-crane-grey break-all">
-                        {currentUser.email}
-                      </div>
-                    </div>
-
-                    <div className="pt-3 space-y-1.5 text-[9px] font-mono">
-                      <div className="flex justify-between items-center text-crane-grey">
-                        <span>FIRESTORE DB:</span>
-                        <span className="text-pearl-africa font-mono font-bold">ai-studio-92ba9721</span>
-                      </div>
-                      <div className="flex justify-between items-center text-crane-grey">
-                        <span>CLEARANCE:</span>
-                        <span className={isDirector ? "text-crested-gold font-bold" : "text-pearl-africa"}>
-                          {isDirector ? "LEVEL 5 (PRESIDENTIAL)" : "LEVEL 3 (TACTICAL)"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-crane-grey">
-                        <span>REAL-TIME PERSISTENCE:</span>
-                        <span className="text-savanna-sage font-bold flex items-center gap-1">
-                          <CheckCircle2 size={10} /> SYNCHRONIZED
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 flex items-center justify-between">
-                      <button
-                        onClick={async () => {
-                          await logout();
-                          setIsUserMenuOpen(false);
-                          logOperationalAction('User logged out from strategic terminal', 'SYSTEM');
-                        }}
-                        className="w-full py-1.5 px-3 bg-white/5 hover:bg-brotherhood-crimson/20 border border-white/10 hover:border-brotherhood-crimson/40 text-pearl-africa hover:text-brotherhood-crimson rounded text-[10px] font-mono font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
-                      >
-                        <LogOut size={12} />
-                        TERMINATE SESSION (SIGN OUT)
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <button
+                onClick={() => setIsDrawerOpen(true)}
+                className="p-2 rounded-lg bg-bg-elevated hover:border-accent/50 border border-border-subtle text-text-secondary hover:text-text-primary transition-colors duration-150"
+                title="Command Interface Settings"
+              >
+                <Settings size={15} />
+              </button>
             </div>
-          ) : (
-            <button
-              onClick={async () => {
-                try {
-                  await loginWithGoogle();
-                  logOperationalAction('Operator initiated Google Sign-in authentication', 'SYSTEM');
-                } catch (err) {
-                  console.error("Sign in failed:", err);
-                }
-              }}
-              className="h-8 px-2.5 bg-crested-gold hover:bg-watch-gold text-lake-victoria font-mono text-[9px] font-black uppercase tracking-wider rounded transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(212,175,55,0.3)] active:scale-95"
-              title="Sign in with Google to enable real-time persistent intelligence dossiers"
-            >
-              <LogIn size={13} />
-              <span className="hidden sm:inline">AUTHENTICATE // GOOGLE</span>
-              <span className="sm:hidden">SIGN IN</span>
-            </button>
-          )}
-        </div>
-      </header>
 
-      {/* Real-time High-Severity Kinetic Incident Visual Alert Banner */}
+            {/* User Profile Chip */}
+            {currentUser ? (
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className={`w-full flex items-center gap-2.5 p-2 rounded-xl bg-bg-elevated border border-border-subtle hover:border-accent/40 text-left transition-colors duration-150 ${
+                  isSidebarCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <div className="w-7 h-7 rounded-full bg-accent text-accent-ink font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                  {isDirector ? 'MS' : (currentUser.email?.[0]?.toUpperCase() || 'U')}
+                </div>
+                {!isSidebarCollapsed && (
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-medium text-text-primary truncate">
+                        {isDirector ? 'Comrade Mugisolo' : (currentUser.displayName || 'Analyst')}
+                      </span>
+                      <span className="text-[10px] font-mono text-success shrink-0">
+                        {subscription.planId === 'FREE_TRIAL' ? '7D FREE' : subscription.planId}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-mono text-text-secondary truncate">
+                      {subMeta.badgeLabel}
+                    </div>
+                  </div>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => loginWithGoogle()}
+                className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-accent text-accent-ink text-xs font-semibold transition-opacity hover:opacity-90`}
+                title="Sign in with Google"
+              >
+                <LogIn size={14} />
+                {!isSidebarCollapsed && <span>Sign In</span>}
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* 2. MAIN COLUMN (Slim 56px Top Bar + Centered 1200px Viewport) */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* SLIM TOP BAR (56px / h-14) */}
+          <header className="h-14 px-4 lg:px-6 border-b border-border-subtle bg-bg-base/85 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between gap-4">
+            {/* Left: Mobile Menu Button + Current View Title */}
+            <div className="flex items-center gap-3 shrink-0">
+              <button 
+                onClick={() => setIsDrawerOpen(true)}
+                className="md:hidden p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-lg hover:bg-bg-surface transition-colors"
+                title="Open Navigation"
+              >
+                <Menu size={18} />
+              </button>
+              <h1 className="font-display font-semibold text-base text-text-primary whitespace-nowrap">
+                {currentViewTitle}
+              </h1>
+            </div>
+
+            {/* Center: Global Cross-Ledger Search Pill (max-w-xl, ⌘K) */}
+            <div className="flex-1 max-w-xl relative">
+              <div className="relative w-full">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search assets, actors, or incidents..."
+                  value={globalSearch}
+                  onChange={(e) => {
+                    setGlobalSearch(e.target.value);
+                    setIsSearchFocused(true);
+                  }}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                  className="w-full h-9 pl-9 pr-14 bg-bg-surface border border-border-subtle rounded-full text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors duration-150"
+                />
+                <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-text-secondary bg-bg-elevated border border-border-subtle rounded-md absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                  ⌘K
+                </kbd>
+
+                {/* Search Results Dropdown */}
+                <AnimatePresence>
+                  {isSearchFocused && globalSearch.trim().length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full left-0 right-0 mt-2 max-h-72 overflow-y-auto bg-bg-elevated border border-border-subtle rounded-2xl shadow-xl z-50 p-2 divide-y divide-border-subtle"
+                    >
+                      <div className="text-[11px] font-mono text-text-secondary px-2.5 py-1.5">
+                        Matching Records ({searchResults.length})
+                      </div>
+                      {searchResults.length === 0 ? (
+                        <div className="text-xs text-text-secondary p-4 text-center">
+                          No matching records found.
+                        </div>
+                      ) : (
+                        searchResults.map(result => (
+                          <button
+                            key={result.id}
+                            onMouseDown={() => {
+                              setView(result.targetView);
+                              logOperationalAction(`Search selection triggered navigation: ${result.title} [${result.type}]`, 'USER_QUERY');
+                              setGlobalSearch('');
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-bg-surface rounded-lg transition-colors flex flex-col gap-0.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-text-primary truncate">{result.title}</span>
+                              <span className="text-[10px] font-mono text-text-secondary shrink-0">
+                                {result.type}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-mono text-text-secondary truncate">{result.subtitle}</span>
+                          </button>
+                        ))
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            {/* Right: Threat Level Segmented Control (L1–L5), Density, Audit Log, PDF Export, Auth Avatar */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Compact Segmented Control: Threat Level L1–L5 */}
+              <div className="hidden lg:flex items-center bg-bg-surface border border-border-subtle rounded-lg p-0.5" title={threat.label}>
+                {[1, 2, 3, 4, 5].map((lvl) => {
+                  const active = threatLevel === lvl;
+                  return (
+                    <button
+                      key={lvl}
+                      onClick={() => {
+                        setThreatLevel(lvl);
+                        if (lvl === 5) setIsAlertOpen(true);
+                      }}
+                      className={`px-2 py-1 rounded-md font-mono text-[11px] transition-colors duration-150 ${
+                        active
+                          ? lvl === 5
+                            ? 'bg-danger text-white font-semibold'
+                            : lvl === 4
+                            ? 'bg-warning text-accent-ink font-semibold'
+                            : 'bg-accent text-accent-ink font-semibold'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      L{lvl}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Display Density Menu */}
+              <div className="relative hidden sm:block">
+                <button
+                  onClick={() => setIsDensityMenuOpen(!isDensityMenuOpen)}
+                  className="h-8 px-2.5 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-elevated text-text-secondary hover:text-text-primary text-xs font-mono flex items-center gap-1.5 transition-colors duration-150"
+                  title="Display density"
+                >
+                  <SlidersHorizontal size={13} />
+                  <span className="hidden xl:inline">{density}</span>
+                </button>
+                {isDensityMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-36 bg-bg-elevated border border-border-subtle rounded-xl p-1 shadow-xl z-50">
+                    {(['Compact', 'Standard', 'Briefing'] as const).map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => {
+                          setDensity(d);
+                          setIsDensityMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                          density === d ? 'bg-accent text-accent-ink font-semibold' : 'text-text-primary hover:bg-bg-surface'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Subscription & Clearance Tiers Button */}
+              <button
+                onClick={() => setIsSubscriptionModalOpen(true)}
+                className="h-8 px-2.5 rounded-lg border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors duration-150"
+                title="Subscription & Clearance Tiers — First Week Free | Daily $20 (UGX 100k) | Weekly $150 (UGX 700k) | Monthly $500 (UGX 2M)"
+              >
+                <CreditCard size={13} />
+                <span className="hidden md:inline">
+                  {subscription.planId === 'FREE_TRIAL'
+                    ? 'Free Trial (7D)'
+                    : subscription.planId === 'DAILY'
+                    ? 'Daily · $20'
+                    : subscription.planId === 'WEEKLY'
+                    ? 'Weekly · $150'
+                    : 'Monthly · $500'}
+                </span>
+              </button>
+
+              {/* Operational Audit Log Icon */}
+              <button 
+                onClick={() => setIsAuditPanelOpen(true)}
+                className="h-8 w-8 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-elevated text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors duration-150"
+                title="Operational Audit Log"
+              >
+                <Terminal size={14} />
+              </button>
+              
+              {/* PDF Export Icon */}
+              <button 
+                onClick={handleExportDashboardPDF}
+                className="h-8 w-8 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-elevated text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors duration-150"
+                title="Export Strategic Briefing PDF"
+              >
+                <Download size={14} />
+              </button>
+
+              {/* Auth Avatar / Sign-in */}
+              {currentUser ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="h-8 px-2.5 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-elevated text-text-primary flex items-center gap-2 transition-colors duration-150"
+                    title={isDirector ? "Comrade Mugisolo — Director of Strategic Oversight" : (currentUser.email || "User Profile")}
+                  >
+                    {currentUser.photoURL ? (
+                      <img src={currentUser.photoURL} alt="Avatar" referrerPolicy="no-referrer" className="w-5 h-5 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-accent text-accent-ink flex items-center justify-center font-mono text-[10px] font-bold">
+                        {isDirector ? 'MS' : (currentUser.email?.[0]?.toUpperCase() || 'U')}
+                      </div>
+                    )}
+                    <span className="font-mono text-xs hidden sm:inline">
+                      {isDirector ? 'Mugisolo' : (currentUser.displayName?.split(' ')[0] || 'Analyst')}
+                    </span>
+                  </button>
+
+                  {/* User Profile Dropdown */}
+                  <AnimatePresence>
+                    {isUserMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-full mt-2 w-72 bg-bg-elevated border border-border-subtle rounded-2xl shadow-xl p-4 z-50 space-y-3 divide-y divide-border-subtle"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono text-text-secondary">Operator Identity</span>
+                            <span className="text-[11px] font-mono text-accent">
+                              {isDirector ? 'Director · SFC' : 'Authenticated'}
+                            </span>
+                          </div>
+                          <div className="font-display font-semibold text-sm text-text-primary">
+                            {isDirector ? 'Comrade Mugisolo' : (currentUser.displayName || 'Strategic Officer')}
+                          </div>
+                          <div className="font-mono text-xs text-text-secondary break-all">
+                            {currentUser.email}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 space-y-1.5 text-xs font-mono">
+                          <div className="flex justify-between items-center text-text-secondary">
+                            <span>Firestore DB:</span>
+                            <span className="text-text-primary">ai-studio-92ba9721</span>
+                          </div>
+                          <div className="flex justify-between items-center text-text-secondary">
+                            <span>Clearance:</span>
+                            <span className="text-text-primary">
+                              {isDirector ? "Level 5 (Presidential)" : "Level 3 (Tactical)"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Active Subscription Status in Profile Settings */}
+                        <div className="pt-3 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono text-text-secondary uppercase">
+                              Subscription Status
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-success/15 text-success border border-success/30">
+                              {subscription.status === 'TRIAL_ACTIVE' ? 'FIRST WEEK FREE' : 'ACTIVE'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-bg-surface border border-border-subtle space-y-1 font-mono text-[11px]">
+                            <div className="flex justify-between items-center">
+                              <span className="text-text-secondary">Tier:</span>
+                              <span className="text-text-primary font-semibold">{subscription.planName}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-text-secondary">Rate:</span>
+                              <span className="text-accent">{subscription.priceDisplay}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-text-secondary">Free Window:</span>
+                              <span className="text-success">{subMeta.trialDaysLeft}d remaining</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsSubscriptionModalOpen(true);
+                            }}
+                            className="w-full py-2 px-3 bg-accent hover:opacity-90 text-accent-ink rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-opacity"
+                          >
+                            <CreditCard size={13} />
+                            <span>Manage Subscription Tier</span>
+                          </button>
+                        </div>
+
+                        <div className="pt-3">
+                          <button
+                            onClick={async () => {
+                              await logout();
+                              setIsUserMenuOpen(false);
+                              logOperationalAction('User logged out from strategic terminal', 'SYSTEM');
+                            }}
+                            className="w-full py-2 px-3 bg-bg-surface hover:bg-danger/15 border border-border-subtle hover:border-danger/40 text-text-primary hover:text-danger rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <LogOut size={13} />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      await loginWithGoogle();
+                      logOperationalAction('Operator initiated Google Sign-in authentication', 'SYSTEM');
+                    } catch (err) {
+                      console.error("Sign in failed:", err);
+                    }
+                  }}
+                  className="h-8 px-3 bg-accent hover:opacity-90 text-accent-ink text-xs font-semibold rounded-lg transition-opacity flex items-center gap-1.5"
+                >
+                  <LogIn size={13} />
+                  <span className="hidden sm:inline">Sign In</span>
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* CENTERED MAIN CONTENT AREA (max-w-[1200px], generous 24–32px padding) */}
+          <main
+            ref={dashboardRef}
+            className={`flex-1 overflow-y-auto mx-auto w-full max-w-[1200px] ${
+              density === 'Compact' ? 'p-5 lg:p-6' : density === 'Briefing' ? 'p-8 lg:p-10' : 'p-6 lg:p-8'
+            }`}
+          >
+            {pdfExportStatus && (
+              <div className="mb-4 px-3.5 py-2 rounded-xl bg-bg-surface border border-border-subtle text-xs font-mono text-text-primary flex items-center justify-between">
+                <span>{pdfExportStatus}</span>
+              </div>
+            )}
+            {renderView()}
+          </main>
+        </div>
+      </div>
+
+      {/* Floating Tactical Assistant FAB & Slide-over Panel on non-Chat tabs */}
+      {view !== ViewState.CHAT && <Chatbot />}
+
+      {/* Bottom-Right Toast for Real-time High-Severity Kinetic Incidents */}
       <AnimatePresence>
         {activeToast && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="w-full bg-brotherhood-crimson border-b border-brotherhood-crimson/20 relative overflow-hidden z-30"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.18 }}
+            className="fixed bottom-6 right-6 z-[80] w-full max-w-md bg-bg-elevated border border-border-subtle border-l-4 border-l-danger rounded-xl shadow-2xl p-4"
           >
-            <div className="max-w-lg mx-auto p-4 flex items-start gap-4">
-              <div className="w-8 h-8 rounded bg-black/40 flex items-center justify-center flex-shrink-0 border border-brotherhood-crimson text-brotherhood-crimson shadow-[0_0_12px_var(--color-brotherhood-crimson)] animate-pulse">
-                <AlertTriangle size={16} className="text-brotherhood-crimson" />
-              </div>
-              
-              <div className="flex-grow space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-mono font-black uppercase text-white tracking-widest bg-black/40 px-1.5 py-0.5 rounded border border-white/10">
-                    KINETIC_ALERT: {activeToast.severity}
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-danger shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-mono font-semibold text-danger">
+                    {activeToast.severity} · {activeToast.location}
                   </span>
-                  <span className="text-[9px] font-mono text-white/60">
-                    Location: {activeToast.location}
-                  </span>
+                  <button
+                    onClick={() => setActiveToast(null)}
+                    className="text-text-secondary hover:text-text-primary"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-                <p className="text-xs font-mono font-bold text-white leading-relaxed">
+                <p className="text-xs text-text-primary leading-relaxed">
                   {activeToast.description}
                 </p>
-                <div className="flex items-center gap-3 pt-1.5">
+                <div className="pt-2 flex items-center gap-3">
                   <button
                     onClick={() => {
                       setView(ViewState.MAP);
                       setActiveToast(null);
                       logOperationalAction(`Acknowledged critical kinetic alert for ${activeToast.location} and routed to Tactical Map.`, 'SECURITY');
                     }}
-                    className="px-2.5 py-1 bg-white text-brotherhood-crimson rounded text-[9px] font-mono font-black uppercase tracking-wider transition-all hover:bg-white/90 active:scale-95 shadow-md"
+                    className="px-3 py-1 bg-accent text-accent-ink rounded-lg text-xs font-semibold"
                   >
-                    ACTIVATE SURVEILLANCE FEED
+                    View on Map
                   </button>
                   <button
-                    onClick={() => {
-                      setActiveToast(null);
-                      logOperationalAction(`Critical kinetic alert for ${activeToast.location} dismissed.`, 'SECURITY');
-                    }}
-                    className="text-[9px] font-mono font-bold text-white/70 hover:text-white underline"
+                    onClick={() => setActiveToast(null)}
+                    className="text-xs text-text-secondary hover:text-text-primary"
                   >
-                    DISMISS
+                    Dismiss
                   </button>
                 </div>
               </div>
             </div>
-            {/* Glowing warning line design */}
-            <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse" />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 3. Main Operational Grid */}
-      <main ref={dashboardRef} className="flex-grow p-4 lg:p-6 overflow-y-auto pb-32 max-w-[1600px] mx-auto w-full">
-        <div className="flex items-center justify-between mb-4 px-1">
-          <span className="text-[9px] font-mono text-crane-grey uppercase tracking-[0.2em]">
-            {view === ViewState.CHAT ? 'INTELLIGENCE COMMAND TERMINAL // SECURE' : `${view} MODULE // SECURE`}
-          </span>
-          <div className="flex items-center gap-3">
-            {pdfExportStatus && (
-              <span className="text-[9px] font-mono font-bold text-crested-gold bg-crested-gold/10 px-2 py-0.5 rounded border border-crested-gold/30">
-                {pdfExportStatus}
-              </span>
-            )}
-            <div className="flex items-center gap-1 font-mono text-[8px] text-crested-gold">
-              <span className="animate-pulse">●</span> SYNC_ACTIVE
-            </div>
-          </div>
-        </div>
-        {renderView()}
-      </main>
-
-      {/* 4. Strategic Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-lake-victoria border-t border-white/5 flex items-center px-2 pb-safe z-50">
-        {[
-          { icon: MessageSquare, label: 'Intel Chat', view: ViewState.CHAT },
-          { icon: LayoutGrid, label: 'Theater', view: ViewState.THEATER },
-          { icon: HardDrive, label: 'Assets', view: ViewState.ASSETS },
-          { icon: MapIcon, label: 'Tactical', view: ViewState.MAP },
-          { icon: Users, label: 'Actors', view: ViewState.ACTORS },
-          { icon: Activity, label: 'Forensics', view: ViewState.FORENSICS },
-          { icon: BrainCircuit, label: 'Synthesis', view: ViewState.SYNTHESIS },
-        ].map((item) => (
-          <button 
-            key={item.label}
-            onClick={() => {
-              setView(item.view);
-              // Simulated haptic feedback
-              if (window.navigator?.vibrate) window.navigator.vibrate(10);
-            }}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all relative py-2 ${view === item.view ? 'text-crested-gold' : 'text-crane-grey'}`}
-          >
-            <item.icon size={18} strokeWidth={view === item.view ? 3 : 2} className="transition-transform duration-300 transform active:scale-75" />
-            <span className="text-[7px] font-black uppercase tracking-widest leading-none mt-1">{item.label}</span>
-            {view === item.view && (
-              <motion.div 
-                layoutId="nav-glow" 
-                className="absolute inset-0 bg-crested-gold/5 rounded-lg -z-10 blur-xl" 
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-            {view === item.view && <motion.div layoutId="nav-dot" className="w-3 h-0.5 rounded-full bg-crested-gold absolute bottom-2" />}
-          </button>
-        ))}
-      </nav>
-
-      {/* 5. Command Drawer */}
+      {/* Mobile & Settings Slide-Over Drawer */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
             <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[70]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[70]"
             />
             <motion.aside
-              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-              className="fixed inset-y-0 left-0 w-[85%] max-w-sm bg-lake-victoria border-r border-white/5 z-[80] p-8 flex flex-col"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="fixed inset-y-0 left-0 w-72 bg-bg-surface border-r border-border-subtle z-[80] p-6 flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between mb-10">
-                <div className="flex items-center gap-3">
-                   <Command className="text-crested-gold" size={24} />
-                   <h2 className="text-sm font-black uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">Command Interface</h2>
-                </div>
-                <button onClick={() => setIsDrawerOpen(false)} className="p-2 border border-white/5 rounded-full active:bg-white/10">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="flex-grow space-y-12 overflow-y-auto custom-scrollbar pr-2">
-                <section>
-                  <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-crane-grey mb-6 border-b border-white/5 pb-2">Operational Controls</h4>
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => setIsNightOps(!isNightOps)}
-                      className={`w-full flex items-center justify-between p-4 stacked-precision-card ${isNightOps ? 'border-brotherhood-crimson/30' : ''}`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <Moon size={18} className={isNightOps ? 'text-brotherhood-crimson' : 'text-crested-gold'} />
-                        <span className="text-xs font-black uppercase tracking-widest">Night Ops Protocol</span>
-                      </div>
-                      <div className={`w-10 h-5 rounded-sm p-1 transition-colors ${isNightOps ? 'bg-brotherhood-crimson/20 border border-brotherhood-crimson/50' : 'bg-lake-victoria border border-white/10'}`}>
-                         <motion.div 
-                          animate={{ x: isNightOps ? 20 : 0 }}
-                          className={`w-2.5 h-full rounded-sm ${isNightOps ? 'bg-brotherhood-crimson' : 'bg-crane-grey'}`} 
-                         />
-                      </div>
-                    </button>
-                    
-                    <div className="bg-kampala-obsidian border border-white/5 p-1 flex gap-1 rounded-sm">
-                      {['Compact', 'Standard', 'Briefing'].map(d => (
-                        <button 
-                          key={d}
-                          onClick={() => setDensity(d as any)}
-                          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-tighter transition-all ${density === d ? 'bg-crested-gold text-lake-victoria font-extrabold' : 'text-crane-grey hover:text-pearl-africa'}`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        setIsAuditPanelOpen(true);
-                        setIsDrawerOpen(false);
-                      }}
-                      className="w-full flex items-center gap-4 p-4 stacked-precision-card text-pearl-africa hover:text-crested-gold hover:border-crested-gold/30 transition-all active:scale-95 text-left"
-                    >
-                      <Terminal size={18} className="text-crested-gold animate-pulse" />
-                      <span className="text-xs font-black uppercase tracking-widest">Operational Audit Panel</span>
-                    </button>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Command className="text-accent" size={20} />
+                    <h2 className="font-display font-bold text-base text-text-primary">U-ISMS Command</h2>
                   </div>
-                </section>
+                  <button onClick={() => setIsDrawerOpen(false)} className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg">
+                    <X size={18} />
+                  </button>
+                </div>
 
-                <section>
-                  <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-crane-grey mb-6 border-b border-white/5 pb-2">Node Presence</h4>
-                  <div className="space-y-4">
-                    {[
-                      { name: 'SFC_DIRECTOR', status: 'Theater Alpha', role: 'HQ' },
-                      { name: 'ANALYST_09', status: 'Synthesis AI', role: 'Intel' },
-                      { name: 'RANGER_COMMAND', status: 'Tactical Map', role: 'Field' },
-                    ].map(user => (
-                      <div key={user.name} className="flex items-center gap-4 group">
-                        <div className="relative">
-                           <div className="w-10 h-10 rounded-sm bg-kampala-obsidian border border-white/10 flex items-center justify-center font-mono text-[10px] text-crane-grey">
-                             {user.name.slice(0, 2)}
-                           </div>
-                           <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-savanna-sage border-2 border-lake-victoria shadow-[0_0_8px_var(--color-savanna-sage)]" />
-                        </div>
-                        <div className="flex-grow">
-                          <p className="text-xs font-black uppercase tracking-widest">{user.name}</p>
-                          <p className="text-[10px] text-crane-grey font-mono uppercase">{user.status} <span className="opacity-30 mx-2">|</span> {user.role}</p>
-                        </div>
-                      </div>
+                {/* Mobile Navigation List */}
+                <div className="space-y-1">
+                  {NAV_ITEMS.map((item) => {
+                    const Icon = item.icon;
+                    const active = view === item.view;
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => {
+                          setView(item.view);
+                          setIsDrawerOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm transition-colors ${
+                          active
+                            ? 'bg-accent text-accent-ink font-semibold'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                        }`}
+                      >
+                        <Icon size={17} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 border-t border-border-subtle space-y-3">
+                  <div className="text-xs font-mono text-text-secondary">Interface Preferences</div>
+                  <button 
+                    onClick={() => setIsNightOps(!isNightOps)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-bg-elevated border border-border-subtle text-xs text-text-primary"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      {isNightOps ? <Moon size={15} /> : <Sun size={15} className="text-accent" />}
+                      <span>{isNightOps ? 'Night Ops (Dark)' : 'Day Briefing (Light)'}</span>
+                    </span>
+                    <span className="font-mono text-[11px] text-text-secondary">Toggle</span>
+                  </button>
+
+                  <div className="bg-bg-elevated border border-border-subtle p-1 flex gap-1 rounded-xl">
+                    {(['Compact', 'Standard', 'Briefing'] as const).map(d => (
+                      <button 
+                        key={d}
+                        onClick={() => setDensity(d)}
+                        className={`flex-1 py-1.5 text-xs rounded-lg transition-colors ${
+                          density === d ? 'bg-accent text-accent-ink font-semibold' : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        {d}
+                      </button>
                     ))}
                   </div>
-                </section>
+
+                  {/* Profile Subscription Status Card in Settings Drawer */}
+                  <div className="p-3 rounded-xl bg-bg-elevated border border-border-subtle space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono text-text-secondary uppercase">
+                        Active Tier
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30">
+                        {subscription.status === 'TRIAL_ACTIVE' ? '1ST WEEK FREE' : 'ACTIVE'}
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-text-primary">
+                      {subscription.planName}
+                    </div>
+                    <div className="text-[11px] font-mono text-accent">
+                      {subscription.priceDisplay} · {subMeta.trialDaysLeft}d free window
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsSubscriptionModalOpen(true);
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-accent text-accent-ink text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                    >
+                      <CreditCard size={14} />
+                      <span>Manage Subscription Tiers</span>
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setIsAuditPanelOpen(true);
+                      setIsDrawerOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-bg-elevated border border-border-subtle text-xs text-text-primary hover:border-accent/40"
+                  >
+                    <Terminal size={15} className="text-accent" />
+                    <span>Operational Audit Log</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-auto border-t border-white/5 pt-8 flex items-center gap-5">
-                <div className="w-12 h-12 rounded-sm bg-kampala-obsidian border border-white/5 flex items-center justify-center font-mono text-sm font-black text-crested-gold shadow-inner">
-                    UG
+              <div className="pt-4 border-t border-border-subtle flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-bg-elevated border border-border-subtle flex items-center justify-center font-mono text-xs font-bold text-accent">
+                  UG
                 </div>
                 <div>
-                   <p className="text-xs font-black uppercase tracking-[0.2em] leading-tight">National Security Grid</p>
-                   <p className="text-[9px] text-savanna-sage font-mono uppercase tracking-widest mt-1">Status: Operational</p>
+                  <p className="text-xs font-semibold text-text-primary">National Security Grid</p>
+                  <p className="text-[11px] font-mono text-success">Operational</p>
                 </div>
               </div>
             </motion.aside>
@@ -1967,58 +2189,59 @@ export const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* 6. Alert Cascade - Full-screen Interstitial for level 5 */}
+      {/* Level 5 Threat Escalation Modal */}
       <AnimatePresence>
         {isAlertOpen && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-brotherhood-crimson text-white p-10 flex flex-col items-center justify-center text-center overflow-hidden"
+            className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm p-6 flex items-center justify-center"
           >
-            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-            
-            <motion.div
-              animate={{ 
-                scale: [1, 1.1, 1],
-                rotate: [0, 2, -2, 0]
-              }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="relative mb-12"
-            >
-               <ShieldAlert size={120} className="relative z-10" />
-               <div className="absolute inset-0 bg-white blur-3xl opacity-30 animate-pulse" />
-            </motion.div>
-
-            <div className="space-y-4 mb-20 max-w-xs">
-              <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">CRITICAL ESCALATION</h2>
-              <div className="h-1 w-full bg-white/20">
-                 <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2 }} className="h-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+            <div className="w-full max-w-md bg-bg-elevated border border-danger rounded-2xl p-6 space-y-5 text-center shadow-2xl">
+              <div className="w-12 h-12 rounded-full bg-danger/15 text-danger flex items-center justify-center mx-auto">
+                <ShieldAlert size={26} />
               </div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.4em] opacity-80">Threat Level Five Active</p>
-            </div>
-
-            <p className="text-lg font-bold leading-tight max-w-sm mb-16 uppercase tracking-tight">
-              A kinetic breach of Theater Alpha core perimeter has been verified by multi-domain sensors. Ground truth stability score degraded to CRITICAL (12%).
-            </p>
-
-            <div className="w-full max-w-xs space-y-4">
-              <button 
-                onClick={() => setIsAlertOpen(false)}
-                className="w-full py-5 bg-white text-brotherhood-crimson font-black uppercase tracking-[0.3em] text-xs rounded-sm shadow-[0_20px_40px_rgba(0,0,0,0.4)] active:scale-95 transition-transform"
-              >
-                Acknowledge Threat
-              </button>
-              <button className="w-full py-4 border border-white/30 font-black uppercase tracking-[0.3em] text-[10px] rounded-sm hover:bg-white/10 transition-colors">
-                Initiate Protocol 44
-              </button>
+              <div className="space-y-1.5">
+                <span className="text-xs font-mono text-danger">THREAT LEVEL 5 — CRITICAL</span>
+                <h2 className="font-display text-2xl font-bold text-text-primary">Critical Theater Escalation</h2>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Multi-domain sensors indicate heightened kinetic friction across monitored corridors. High-Command contingency readiness is active.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsAlertOpen(false)}
+                  className="flex-1 py-2.5 bg-danger text-white font-semibold text-xs rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  Acknowledge
+                </button>
+                <button 
+                  onClick={() => {
+                    setThreatLevel(3);
+                    setIsAlertOpen(false);
+                  }}
+                  className="flex-1 py-2.5 bg-bg-surface border border-border-subtle text-text-primary text-xs font-medium rounded-xl hover:bg-bg-base transition-colors"
+                >
+                  Return to L3
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 7. Operational Session Audit Log Panel */}
+      {/* Operational Session Audit Log Panel */}
       <OperationalAuditPanel isOpen={isAuditPanelOpen} onClose={() => setIsAuditPanelOpen(false)} />
+
+      {/* Command Clearance & Subscription Tiers Modal */}
+      <SubscriptionModal
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
+        currentUser={currentUser}
+        subscription={subscription}
+        onSelectPlan={setSubscription}
+      />
     </div>
   );
 };
